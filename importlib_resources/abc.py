@@ -1,24 +1,23 @@
+from __future__ import annotations
+
 import abc
 import itertools
 import os
 import pathlib
+from collections.abc import Iterable, Iterator
 from typing import (
     Any,
     BinaryIO,
-    Iterable,
-    Iterator,
-    NoReturn,
     Literal,
-    Optional,
+    NoReturn,
     Protocol,
     Text,
     TextIO,
-    Union,
     overload,
     runtime_checkable,
 )
 
-StrPath = Union[str, os.PathLike[str]]
+StrPath = str | os.PathLike[str]
 
 __all__ = ["ResourceReader", "Traversable", "TraversableResources"]
 
@@ -80,7 +79,7 @@ class Traversable(Protocol):
     """
 
     @abc.abstractmethod
-    def iterdir(self) -> Iterator["Traversable"]:
+    def iterdir(self) -> Iterator[Traversable]:
         """
         Yield Traversable objects in self
         """
@@ -92,9 +91,7 @@ class Traversable(Protocol):
         with self.open('rb') as strm:
             return strm.read()
 
-    def read_text(
-        self, encoding: Optional[str] = None, errors: Optional[str] = None
-    ) -> str:
+    def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
         """
         Read contents of self as text
         """
@@ -113,7 +110,7 @@ class Traversable(Protocol):
         Return True if self is a file
         """
 
-    def joinpath(self, *descendants: StrPath) -> "Traversable":
+    def joinpath(self, *descendants: StrPath) -> Traversable:
         """
         Return Traversable resolved with any descendants applied.
 
@@ -138,7 +135,7 @@ class Traversable(Protocol):
             )
         return match.joinpath(*names)
 
-    def __truediv__(self, child: StrPath) -> "Traversable":
+    def __truediv__(self, child: StrPath) -> Traversable:
         """
         Return Traversable child in self
         """
@@ -151,9 +148,7 @@ class Traversable(Protocol):
     def open(self, mode: Literal['rb'], *args: Any, **kwargs: Any) -> BinaryIO: ...
 
     @abc.abstractmethod
-    def open(
-        self, mode: str = 'r', *args: Any, **kwargs: Any
-    ) -> Union[TextIO, BinaryIO]:
+    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> TextIO | BinaryIO:
         """
         mode may be 'r' or 'rb' to open as text or binary. Return a handle
         suitable for reading (same as pathlib.Path.open).
@@ -177,7 +172,7 @@ class TraversableResources(ResourceReader):
     """
 
     @abc.abstractmethod
-    def files(self) -> "Traversable":
+    def files(self) -> Traversable:
         """Return a Traversable object for the loaded package."""
 
     def open_resource(self, resource: StrPath) -> BinaryIO:

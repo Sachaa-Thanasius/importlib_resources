@@ -111,6 +111,15 @@ class MultiplexedPath(abc.Traversable):
         Otherwise, return a MultiplexedPath of the items.
         Unless one of the items is not a Directory, then return the first.
         """
+        dirs = tuple(children)
+        if len(dirs) == 1:
+            return dirs[0]
+
+        try:
+            return cls(*dirs)
+        except NotADirectoryError:
+            return dirs[0]
+
         subdirs, one_dir, one_file = itertools.tee(children, 3)
 
         try:

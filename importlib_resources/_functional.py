@@ -2,8 +2,12 @@
 
 import warnings
 
+import lazy_finder
+
 from ._common import as_file, files
-from .abc import TraversalError
+
+with lazy_finder.lazy_finder:
+    from . import abc
 
 _MISSING = object()
 
@@ -44,7 +48,7 @@ def is_resource(anchor, *path_names):
     """
     try:
         return _get_resource(anchor, path_names).is_file()
-    except TraversalError:
+    except abc.TraversalError:
         return False
 
 

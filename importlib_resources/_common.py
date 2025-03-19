@@ -1,18 +1,23 @@
+from __future__ import annotations
+
 import contextlib
 import functools
 import importlib
-import inspect
-import itertools
 import os
-import pathlib
-import tempfile
 import types
 import warnings
-from typing import Optional, Union, cast
 
-from .abc import ResourceReader, Traversable
+import lazy_finder
 
-Package = Union[types.ModuleType, str]
+with lazy_finder.lazy_finder:
+    import inspect
+    import pathlib
+    import tempfile
+
+    from . import abc
+
+
+Package = types.ModuleType | str
 Anchor = Package
 
 
@@ -49,14 +54,14 @@ def package_to_anchor(func):
 
 
 @package_to_anchor
-def files(anchor: Optional[Anchor] = None) -> Traversable:
+def files(anchor: Anchor | None = None) -> abc.Traversable:
     """
     Get a Traversable resource for an anchor.
     """
     return from_package(resolve(anchor))
 
 
-def get_resource_reader(package: types.ModuleType) -> Optional[ResourceReader]:
+def get_resource_reader(package: types.ModuleType) -> abc.ResourceReader | None:
     """
     Return the package's loader if it's a ResourceReader.
     """
@@ -72,19 +77,14 @@ def get_resource_reader(package: types.ModuleType) -> Optional[ResourceReader]:
     return reader(spec.name)  # type: ignore[union-attr]
 
 
-@functools.singledispatch
-def resolve(cand: Optional[Anchor]) -> types.ModuleType:
-    return cast(types.ModuleType, cand)
+def resolve(cand: Anchor | None) -> types.ModuleType:
+    if cand is None:
+        return resolve(_infer_caller().f_globals['__name__'])
 
+    if isinstance(cand, str):
+        return importlib.import_module(cand)
 
-@resolve.register
-def _(cand: str) -> types.ModuleType:
-    return importlib.import_module(cand)
-
-
-@resolve.register
-def _(cand: None) -> types.ModuleType:
-    return resolve(_infer_caller().f_globals['__name__'])
+    return cand
 
 
 def _infer_caller():
@@ -92,16 +92,10 @@ def _infer_caller():
     Walk the stack and find the frame of the first caller not in this module.
     """
 
-    def is_this_file(frame_info):
-        return frame_info.filename == stack[0].filename
-
-    def is_wrapper(frame_info):
-        return frame_info.function == 'wrapper'
-
     stack = inspect.stack()
-    not_this_file = itertools.filterfalse(is_this_file, stack)
+    not_this_file = (fi for fi in stack if fi.filename != stack[0].filename)
     # also exclude 'wrapper' due to singledispatch in the call stack
-    callers = itertools.filterfalse(is_wrapper, not_this_file)
+    callers = (fi for fi in not_this_file if fi.function != 'wrapper')
     return next(callers).frame
 
 
@@ -149,7 +143,7 @@ def _temp_file(path):
     return _tempfile(path.read_bytes, suffix=path.name)
 
 
-def _is_present_dir(path: Traversable) -> bool:
+def _is_present_dir(path: abc.Traversable) -> bool:
     """
     Some Traversables implement ``is_dir()`` to raise an
     exception (i.e. ``FileNotFoundError``) when the
@@ -162,18 +156,23 @@ def _is_present_dir(path: Traversable) -> bool:
     return False
 
 
-@functools.singledispatch
 def as_file(path):
     """
     Given a Traversable object, return that object as a
     path on the local file system in a context manager.
     """
-    return _temp_dir(path) if _is_present_dir(path) else _temp_file(path)
+
+    if isinstance(path, pathlib.Path):
+        return _as_file_Path(path)
+
+    if _is_present_dir(path):
+        return _temp_dir(path)
+
+    return _temp_file(path)
 
 
-@as_file.register(pathlib.Path)
 @contextlib.contextmanager
-def _(path):
+def _as_file_Path(path):
     """
     Degenerate behavior for pathlib.Path objects.
     """
@@ -200,7 +199,7 @@ def _temp_dir(path):
         yield _write_contents(temp_dir, path)
 
 
-def _write_contents(target, source):
+def _write_contents(target: pathlib.Path, source: pathlib.Path):
     child = target.joinpath(source.name)
     if source.is_dir():
         child.mkdir()
