@@ -7,18 +7,21 @@ import os
 import types
 import warnings
 
-import lazy_finder
+import lazy_find
 
-with lazy_finder.lazy_finder:
+from .compat.py310 import TypeAlias
+
+with lazy_find.lazy_finder:
     import inspect
     import pathlib
     import tempfile
+    import typing as _t  # noqa: F401 # Used in Package type alias.
 
     from . import abc
 
 
-Package = types.ModuleType | str
-Anchor = Package
+Package: TypeAlias = "_t.Union[types.ModuleType, str]"
+Anchor: TypeAlias = Package
 
 
 def package_to_anchor(func):
@@ -54,14 +57,14 @@ def package_to_anchor(func):
 
 
 @package_to_anchor
-def files(anchor: Anchor | None = None) -> abc.Traversable:
+def files(anchor: _t.Optional[Anchor] = None) -> abc.Traversable:
     """
     Get a Traversable resource for an anchor.
     """
     return from_package(resolve(anchor))
 
 
-def get_resource_reader(package: types.ModuleType) -> abc.ResourceReader | None:
+def get_resource_reader(package: types.ModuleType) -> _t.Optional[abc.ResourceReader]:
     """
     Return the package's loader if it's a ResourceReader.
     """
@@ -77,7 +80,7 @@ def get_resource_reader(package: types.ModuleType) -> abc.ResourceReader | None:
     return reader(spec.name)  # type: ignore[union-attr]
 
 
-def resolve(cand: Anchor | None) -> types.ModuleType:
+def resolve(cand: _t.Optional[Anchor]) -> types.ModuleType:
     if cand is None:
         return resolve(_infer_caller().f_globals['__name__'])
 
@@ -151,8 +154,11 @@ def _is_present_dir(path: abc.Traversable) -> bool:
     to always return a boolean and only return True
     if there's a dir and it exists.
     """
-    with contextlib.suppress(FileNotFoundError):
+
+    try:
         return path.is_dir()
+    except FileNotFoundError:
+        pass
     return False
 
 
@@ -163,7 +169,7 @@ def as_file(path):
     """
 
     if isinstance(path, pathlib.Path):
-        return _as_file_Path(path)
+        return _as_path(path)
 
     if _is_present_dir(path):
         return _temp_dir(path)
@@ -172,7 +178,7 @@ def as_file(path):
 
 
 @contextlib.contextmanager
-def _as_file_Path(path):
+def _as_path(path: pathlib.Path):
     """
     Degenerate behavior for pathlib.Path objects.
     """
@@ -189,7 +195,7 @@ def _temp_path(dir: tempfile.TemporaryDirectory):
 
 
 @contextlib.contextmanager
-def _temp_dir(path):
+def _temp_dir(path: pathlib.Path):
     """
     Given a traversable dir, recursively replicate the whole tree
     to the file system in a context manager.

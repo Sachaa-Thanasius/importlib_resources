@@ -2,11 +2,11 @@
 
 import warnings
 
-import lazy_finder
+import lazy_find
 
 from ._common import as_file, files
 
-with lazy_finder.lazy_finder:
+with lazy_find.lazy_finder:
     from . import abc
 
 _MISSING = object()

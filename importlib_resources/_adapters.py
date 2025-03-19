@@ -1,4 +1,5 @@
-from contextlib import suppress
+import types
+from importlib.machinery import ModuleSpec
 from io import TextIOWrapper
 
 from . import abc
@@ -9,7 +10,7 @@ class SpecLoaderAdapter:
     Adapt a package spec to adapt the underlying loader.
     """
 
-    def __init__(self, spec, adapter=lambda spec: spec.loader):
+    def __init__(self, spec: ModuleSpec, adapter=lambda spec: spec.loader):
         self.spec = spec
         self.loader = adapter(spec)
 
@@ -143,8 +144,10 @@ class CompatibilityFiles:
 
     @property
     def _reader(self):
-        with suppress(AttributeError):
+        try:
             return self.spec.loader.get_resource_reader(self.spec.name)
+        except AttributeError:
+            pass
 
     def _native(self):
         """
@@ -160,7 +163,7 @@ class CompatibilityFiles:
         return CompatibilityFiles.SpecPath(self.spec, self._reader)
 
 
-def wrap_spec(package):
+def wrap_spec(package: types.ModuleType):
     """
     Construct a package spec with traversable compatibility
     on the spec/loader/reader.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import pathlib
 import sys
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, Union, runtime_checkable
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -25,7 +25,7 @@ class Symlink(str):
     """
 
 
-FilesSpec: TypeAlias = 'dict[str, str | bytes | Symlink | FilesSpec]'
+FilesSpec: TypeAlias = 'dict[str, Union[str, bytes, Symlink, FilesSpec]]'
 
 
 @runtime_checkable
@@ -41,13 +41,13 @@ class TreeMaker(Protocol):
     def symlink_to(self, target): ...  # pragma: no cover
 
 
-def _ensure_tree_maker(obj: str | TreeMaker) -> TreeMaker:
+def _ensure_tree_maker(obj: Union[str, TreeMaker]) -> TreeMaker:
     return obj if isinstance(obj, TreeMaker) else pathlib.Path(obj)  # type: ignore[return-value]
 
 
 def build(
     spec: FilesSpec,
-    prefix: str | TreeMaker = pathlib.Path(),  # type: ignore[assignment]
+    prefix: Union[str, TreeMaker] = pathlib.Path(),  # type: ignore[assignment]
 ):
     """
     Build a set of files/directories, as described by the spec.
@@ -79,7 +79,7 @@ def build(
 
 
 @functools.singledispatch
-def create(content: str | bytes | FilesSpec, path):
+def create(content: Union[str, bytes, FilesSpec], path):
     path.mkdir(exist_ok=True)
     build(content, prefix=path)  # type: ignore[arg-type]
 

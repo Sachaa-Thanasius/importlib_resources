@@ -10,14 +10,16 @@ from typing import (
     BinaryIO,
     Literal,
     NoReturn,
+    Optional,
     Protocol,
     Text,
     TextIO,
+    Union,
     overload,
     runtime_checkable,
 )
 
-StrPath = str | os.PathLike[str]
+StrPath = Union[str, os.PathLike[str]]
 
 __all__ = ["ResourceReader", "Traversable", "TraversableResources"]
 
@@ -91,7 +93,7 @@ class Traversable(Protocol):
         with self.open('rb') as strm:
             return strm.read()
 
-    def read_text(self, encoding: str | None = None, errors: str | None = None) -> str:
+    def read_text(self, encoding: Optional[str] = None, errors: Optional[str] = None) -> str:
         """
         Read contents of self as text
         """
@@ -148,7 +150,7 @@ class Traversable(Protocol):
     def open(self, mode: Literal['rb'], *args: Any, **kwargs: Any) -> BinaryIO: ...
 
     @abc.abstractmethod
-    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> TextIO | BinaryIO:
+    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Union[TextIO, BinaryIO]:
         """
         mode may be 'r' or 'rb' to open as text or binary. Return a handle
         suitable for reading (same as pathlib.Path.open).

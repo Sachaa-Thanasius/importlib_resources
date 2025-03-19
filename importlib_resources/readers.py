@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import collections
-import contextlib
 import itertools
 import operator
 import pathlib
 import re
 import warnings
 from collections.abc import Iterator
+from typing import Optional
 
 from . import abc
 from ._itertools import only
@@ -15,7 +14,7 @@ from .compat.py39 import ZipPath
 
 
 def remove_duplicates(items):
-    return iter(collections.OrderedDict.fromkeys(items))
+    return iter(dict.fromkeys(items))
 
 
 class FileReader(abc.TraversableResources):
@@ -80,7 +79,8 @@ class MultiplexedPath(abc.Traversable):
         children = (child for path in self._paths for child in path.iterdir())
         by_name = operator.attrgetter('name')
         groups = itertools.groupby(sorted(children, key=by_name), key=by_name)
-        return map(self._follow, (locs for name, locs in groups))
+        for _name, locs in groups:
+            yield self._follow(locs)
 
     def read_bytes(self):
         raise FileNotFoundError(f'{self} is not a file')
@@ -111,14 +111,6 @@ class MultiplexedPath(abc.Traversable):
         Otherwise, return a MultiplexedPath of the items.
         Unless one of the items is not a Directory, then return the first.
         """
-        dirs = tuple(children)
-        if len(dirs) == 1:
-            return dirs[0]
-
-        try:
-            return cls(*dirs)
-        except NotADirectoryError:
-            return dirs[0]
 
         subdirs, one_dir, one_file = itertools.tee(children, 3)
 
@@ -149,7 +141,7 @@ class NamespaceReader(abc.TraversableResources):
         self.path = MultiplexedPath(*filter(bool, map(self._resolve, namespace_path)))
 
     @classmethod
-    def _resolve(cls, path_str) -> abc.Traversable | None:
+    def _resolve(cls, path_str) -> Optional[abc.Traversable]:
         r"""
         Given an item from a namespace path, resolve it to a Traversable.
 
@@ -172,14 +164,16 @@ class NamespaceReader(abc.TraversableResources):
     @staticmethod
     def _resolve_zip_path(path_str: str):
         for match in reversed(list(re.finditer(r'[\\/]', path_str))):
-            with contextlib.suppress(
+            try:
+                inner = path_str[match.end() :].replace('\\', '/') + '/'
+                yield ZipPath(path_str[: match.start()], inner.lstrip('/'))
+            except (
                 FileNotFoundError,
                 IsADirectoryError,
                 NotADirectoryError,
                 PermissionError,
             ):
-                inner = path_str[match.end() :].replace('\\', '/') + '/'
-                yield ZipPath(path_str[: match.start()], inner.lstrip('/'))
+                pass
 
     def resource_path(self, resource):
         """
