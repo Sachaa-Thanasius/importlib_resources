@@ -1,7 +1,6 @@
 import contextlib
 import functools
 import importlib
-import inspect
 import itertools
 import os
 import pathlib
@@ -91,6 +90,8 @@ def _infer_caller():
     """
     Walk the stack and find the frame of the first caller not in this module.
     """
+
+    import inspect
 
     def is_this_file(frame_info):
         return frame_info.filename == stack[0].filename
