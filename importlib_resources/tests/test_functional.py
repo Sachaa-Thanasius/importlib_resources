@@ -3,9 +3,9 @@ import os
 import unittest
 
 import importlib_resources as resources
+from importlib_resources import abc
 
 from . import util
-from .compat.py39 import warnings_helper
 
 
 class StringAnchorMixin:
@@ -72,7 +72,7 @@ class FunctionalAPIBase:
         # fail with PermissionError rather than IsADirectoryError
         with self.assertRaises(OSError):
             resources.read_text(self.anchor01)
-        with self.assertRaises((OSError, resources.abc.TraversalError)):
+        with self.assertRaises((OSError, abc.TraversalError)):
             resources.read_text(self.anchor01, 'no-such-file')
         with self.assertRaises(UnicodeDecodeError):
             resources.read_text(self.anchor01, 'utf-16.file')
@@ -120,7 +120,7 @@ class FunctionalAPIBase:
         # fail with PermissionError rather than IsADirectoryError
         with self.assertRaises(OSError):
             resources.open_text(self.anchor01)
-        with self.assertRaises((OSError, resources.abc.TraversalError)):
+        with self.assertRaises((OSError, abc.TraversalError)):
             resources.open_text(self.anchor01, 'no-such-file')
         with resources.open_text(self.anchor01, 'utf-16.file') as f:
             with self.assertRaises(UnicodeDecodeError):
@@ -171,38 +171,41 @@ class FunctionalAPIBase:
             self.assertTrue(is_resource(self.anchor02, *path_parts))
 
     def test_contents(self):
-        with warnings_helper.check_warnings((".*contents.*", DeprecationWarning)):
+        expected_msg = "importlib.resources.contents is deprecated. Use files(anchor).iterdir() instead."
+
+        with self.assertWarns(DeprecationWarning) as cm:
             c = resources.contents(self.anchor01)
+        self.assertEqual(cm.warning.args[0], expected_msg)
+
         self.assertGreaterEqual(
             set(c),
             {'utf-8.file', 'utf-16.file', 'binary.file', 'subdirectory'},
         )
         with (
+            self.assertWarns(DeprecationWarning) as cm,
             self.assertRaises(OSError),
-            warnings_helper.check_warnings((
-                ".*contents.*",
-                DeprecationWarning,
-            )),
         ):
             list(resources.contents(self.anchor01, 'utf-8.file'))
+        self.assertEqual(cm.warning.args[0], expected_msg)
 
         for path_parts in self._gen_resourcetxt_path_parts():
             with (
-                self.assertRaises((OSError, resources.abc.TraversalError)),
-                warnings_helper.check_warnings((
-                    ".*contents.*",
-                    DeprecationWarning,
-                )),
+                self.assertWarns(DeprecationWarning) as cm,
+                self.assertRaises((OSError, abc.TraversalError)),
             ):
                 list(resources.contents(self.anchor01, *path_parts))
-        with warnings_helper.check_warnings((".*contents.*", DeprecationWarning)):
+            self.assertEqual(cm.warning.args[0], expected_msg)
+
+        with self.assertWarns(DeprecationWarning) as cm:
             c = resources.contents(self.anchor01, 'subdirectory')
+        self.assertEqual(cm.warning.args[0], expected_msg)
+
         self.assertGreaterEqual(
             set(c),
             {'binary.file'},
         )
 
-    @warnings_helper.ignore_warnings(category=DeprecationWarning)
+    @util.filter_warnings("ignore", category=DeprecationWarning)
     def test_common_errors(self):
         for func in (
             resources.read_text,

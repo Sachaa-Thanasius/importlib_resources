@@ -1,5 +1,14 @@
+from __future__ import annotations
+
+from . import _typing_compat as _t
+
+
 # from more_itertools 9.0
-def only(iterable, default=None, too_long=None):
+def only(
+    iterable: _t.Iterable[_t.T],
+    default: _t.U = None,
+    too_long: _t.Optional[_t.Union[Exception, type[Exception]]] = None,
+) -> _t.Union[_t.T, _t.U]:
     """If *iterable* has only one item, return it.
     If it has zero items, return *default*.
     If it has more than one item, raise the exception given by *too_long*,
@@ -29,10 +38,7 @@ def only(iterable, default=None, too_long=None):
     except StopIteration:
         pass
     else:
-        msg = (
-            'Expected exactly one item in iterable, but got {!r}, {!r}, '
-            'and perhaps more.'.format(first_value, second_value)
-        )
+        msg = f'Expected exactly one item in iterable, but got {first_value!r}, {second_value!r}, and perhaps more.'
         raise too_long or ValueError(msg)
 
     return first_value

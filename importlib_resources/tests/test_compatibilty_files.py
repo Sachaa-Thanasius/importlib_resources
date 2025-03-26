@@ -2,10 +2,8 @@ import io
 import unittest
 
 import importlib_resources as resources
-from importlib_resources._adapters import (
-    CompatibilityFiles,
-    wrap_spec,
-)
+from importlib_resources._adapters import CompatibilityFiles, wrap_spec
+from importlib_resources._paths_compat import OrphanPath
 
 from . import util
 
@@ -67,9 +65,7 @@ class CompatibilityFilesTests(unittest.TestCase):
 
     def test_child_path_open(self):
         self.assertEqual((self.files / 'a').read_bytes(), b'Hello, world!')
-        self.assertEqual(
-            (self.files / 'a').read_text(encoding='utf-8'), 'Hello, world!'
-        )
+        self.assertEqual((self.files / 'a').read_text(encoding='utf-8'), 'Hello, world!')
 
     def test_orphan_path_open(self):
         with self.assertRaises(FileNotFoundError):
@@ -83,7 +79,7 @@ class CompatibilityFilesTests(unittest.TestCase):
 
     def test_orphan_path_invalid(self):
         with self.assertRaises(ValueError):
-            CompatibilityFiles.OrphanPath()
+            OrphanPath()
 
     def test_wrap_spec(self):
         spec = wrap_spec(self.package)
@@ -100,4 +96,4 @@ class CompatibilityFilesNoReaderTests(unittest.TestCase):
         return resources.files(self.package)
 
     def test_spec_path_joinpath(self):
-        self.assertIsInstance(self.files / 'a', CompatibilityFiles.OrphanPath)
+        self.assertIsInstance(self.files / 'a', OrphanPath)

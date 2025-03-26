@@ -22,7 +22,7 @@ from ._functional import (
     read_binary,
     read_text,
 )
-from .abc import ResourceReader
+
 
 __all__ = [
     'Package',
@@ -38,3 +38,19 @@ __all__ = [
     'read_binary',
     'read_text',
 ]
+
+
+def __getattr__(name: str) -> object:
+    if name == "ResourceReader":
+        global ResourceReader
+
+        from .abc import ResourceReader
+
+        return ResourceReader
+
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
+
+
+def __dir__() -> list[str]:
+    return sorted(globals().keys() | {"ResourceReader"})

@@ -6,9 +6,11 @@ import io
 import pathlib
 import sys
 import types
+import warnings
 from importlib.machinery import ModuleSpec
 
-from ..abc import ResourceReader, Traversable, TraversableResources
+from importlib_resources.abc import ResourceReader, Traversable, TraversableResources
+
 from . import _path
 from . import zip as zip_
 from .compat.py39 import import_helper, os_helper
@@ -41,9 +43,7 @@ class Reader(ResourceReader):
         def part(entry):
             return entry.split('/')
 
-        return any(
-            len(parts) == 1 and parts[0] == path_ for parts in map(part, self._contents)
-        )
+        return any(len(parts) == 1 and parts[0] == path_ for parts in map(part, self._contents))
 
     def contents(self):
         if isinstance(self.path, Exception):
@@ -187,9 +187,7 @@ class ZipSetup(ModuleSetup):
     def tree_on_path(self, spec):
         temp_dir = self.fixtures.enter_context(os_helper.temp_dir())
         modules = pathlib.Path(temp_dir) / 'zipped modules.zip'
-        self.fixtures.enter_context(
-            import_helper.DirsOnSysPath(str(zip_.make_zip_file(spec, modules)))
-        )
+        self.fixtures.enter_context(import_helper.DirsOnSysPath(str(zip_.make_zip_file(spec, modules))))
 
 
 class DiskSetup(ModuleSetup):
@@ -276,9 +274,7 @@ class MemorySetup(ModuleSetup):
                 # Filesystem openers raise OSError, and that exception is mirrored here.
                 raise OSError(f"{self._fullname} is not a directory")
             for path in directory:
-                yield MemorySetup.MemoryTraversable(
-                    self._module, f"{self._fullname}/{path}"
-                )
+                yield MemorySetup.MemoryTraversable(self._module, f"{self._fullname}/{path}")
 
         def is_dir(self) -> bool:
             return isinstance(self._resolve(), dict)
@@ -306,3 +302,9 @@ class MemorySetup(ModuleSetup):
 
 class CommonTests(DiskSetup, CommonTestsBase):
     pass
+
+
+@contextlib.contextmanager
+def filter_warnings(action: str, category: type[Warning] = Warning):
+    warnings.simplefilter(action, category)
+    yield

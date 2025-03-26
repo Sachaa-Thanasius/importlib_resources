@@ -2,11 +2,15 @@
 Interface adapters for low-level readers.
 """
 
+# NOTE: If this is being imported, .abc is being imported, so there's no point delaying typing-related imports;
+# it doesn't really need ._typing.compat.
+
 import abc
 import io
-import itertools
-from typing import BinaryIO, List
+from collections.abc import Iterator
+from typing import Any, BinaryIO, Union
 
+from ._typing_compat import StrPath
 from .abc import Traversable, TraversableResources
 
 
@@ -24,14 +28,14 @@ class SimpleReader(abc.ABC):
         """
 
     @abc.abstractmethod
-    def children(self) -> List['SimpleReader']:
+    def children(self) -> list['SimpleReader']:
         """
         Obtain an iterable of SimpleReader for available
         child containers (e.g. directories).
         """
 
     @abc.abstractmethod
-    def resources(self) -> List[str]:
+    def resources(self) -> list[str]:
         """
         Obtain available named resources for this virtual package.
         """
@@ -43,7 +47,7 @@ class SimpleReader(abc.ABC):
         """
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.package.split('.')[-1]
 
 
@@ -55,19 +59,20 @@ class ResourceContainer(Traversable):
     def __init__(self, reader: SimpleReader):
         self.reader = reader
 
-    def is_dir(self):
+    def is_dir(self) -> bool:
         return True
 
-    def is_file(self):
+    def is_file(self) -> bool:
         return False
 
-    def iterdir(self):
-        files = (ResourceHandle(self, name) for name in self.reader.resources)
-        dirs = map(ResourceContainer, self.reader.children())
-        return itertools.chain(files, dirs)
+    def iterdir(self) -> Iterator[Union["ResourceHandle", "ResourceContainer"]]:
+        for name in self.reader.resources():  # files
+            yield ResourceHandle(self, name)
+        for child in self.reader.children():  # dirs
+            yield ResourceContainer(child)
 
-    def open(self, *args, **kwargs):
-        raise IsADirectoryError()
+    def open(self, *args: Any, **kwargs: Any) -> Any:
+        raise IsADirectoryError
 
 
 class ResourceHandle(Traversable):
@@ -79,20 +84,21 @@ class ResourceHandle(Traversable):
         self.parent = parent
         self.name = name  # type: ignore[misc]
 
-    def is_file(self):
+    def is_file(self) -> bool:
         return True
 
-    def is_dir(self):
+    def is_dir(self) -> bool:
         return False
 
-    def open(self, mode='r', *args, **kwargs):
+    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Any:
         stream = self.parent.reader.open_binary(self.name)
         if 'b' not in mode:
             stream = io.TextIOWrapper(stream, *args, **kwargs)
         return stream
 
-    def joinpath(self, name):
-        raise RuntimeError("Cannot traverse into a resource")
+    def joinpath(self, *descendents: StrPath):
+        msg = "Cannot traverse into a resource"
+        raise RuntimeError(msg)
 
 
 class TraversableReader(TraversableResources, SimpleReader):
@@ -102,5 +108,5 @@ class TraversableReader(TraversableResources, SimpleReader):
     interface by supplying the SimpleReader interface.
     """
 
-    def files(self):
+    def files(self) -> ResourceContainer:
         return ResourceContainer(self)
