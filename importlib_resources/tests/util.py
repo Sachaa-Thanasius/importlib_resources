@@ -2,12 +2,12 @@ import abc
 import contextlib
 import functools
 import importlib
+import importlib.machinery
 import io
 import pathlib
 import sys
 import types
 import warnings
-from importlib.machinery import ModuleSpec
 
 from importlib_resources.abc import ResourceReader, Traversable, TraversableResources
 
@@ -54,7 +54,7 @@ class Reader(ResourceReader):
 def create_package_from_loader(loader, is_package=True):
     name = 'testingpackage'
     module = types.ModuleType(name)
-    spec = ModuleSpec(name, loader, origin='does-not-exist', is_package=is_package)
+    spec = importlib.machinery.ModuleSpec(name, loader, origin='does-not-exist', is_package=is_package)
     module.__spec__ = spec
     module.__loader__ = loader
     return module

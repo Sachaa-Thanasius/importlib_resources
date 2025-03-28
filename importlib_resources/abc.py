@@ -1,5 +1,3 @@
-# NOTE: If this is being imported, there's no point delaying typing-related imports; it doesn't need ._typing.compat.
-
 from __future__ import annotations
 
 import abc

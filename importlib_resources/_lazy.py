@@ -1,4 +1,6 @@
-"""A reexport shim/middleman for typing-related, annotation-related, and other symbols to avoid import-time
+"""Internal.
+
+A reexport shim/middleman for typing-related symbols, annotation-related symbols, and modules to avoid import-time
 dependencies on expensive modules (like `typing` and `pathlib`) or third-party imports (like `typing-extensions`).
 Some of the symbols or modules may not ever be needed at runtime, depending on what the user does.
 
@@ -25,6 +27,7 @@ __all__ = (
     # stdlib
     "pathlib",
     "tempfile",
+
     # sibling
     "readers",
 
@@ -35,8 +38,10 @@ __all__ = (
     "Generator",
     "Iterable",
     "Iterator",
+
     # contextlib
     "AbstractContextManager",
+
     # typing
     "Any",
     "BinaryIO",
@@ -45,10 +50,12 @@ __all__ = (
     "TextIO",
     "Union",
     "TypeAlias",  # >=3.10
+
     # types
     "FrameType",
     "ModuleType",
     "SimpleNamespace",
+
     # Other
     "StrPath",
     "CallableT",
@@ -63,6 +70,7 @@ __all__ = (
 
 
 def __getattr__(name: str) -> object:  # noqa: PLR0911
+    # We use `global` here to cache the imported/created symbols in the global namespace.
     if name == "pathlib":
         global pathlib
 
@@ -165,8 +173,9 @@ elif sys.version_info < (3, 10):
         """Placeholder for typing.TypeAlias."""
 
 
-# An annotated global can't be assigned within a function,
+# An annotated global can't be assigned within __getattr__ via the global keyword,
 # and pyright won't recognize StrPath as a type alias without the TypeAlias annotation.
+# Hence, this hack.
 if TYPE_CHECKING:
     import os
 
@@ -177,5 +186,5 @@ if TYPE_CHECKING:
     from typing import overload
 else:
 
-    def overload(f):  # noqa: ANN001, ANN202
+    def overload(f: object) -> object:
         return f

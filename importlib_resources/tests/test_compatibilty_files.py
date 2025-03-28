@@ -2,7 +2,7 @@ import io
 import unittest
 
 import importlib_resources as resources
-from importlib_resources._adapters import CompatibilityFiles, wrap_spec
+from importlib_resources import _CompatibilityFiles, _wrap_spec
 from importlib_resources._path_adapters import OrphanPath
 
 from . import util
@@ -81,9 +81,9 @@ class CompatibilityFilesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             OrphanPath()
 
-    def test_wrap_spec(self):
-        reader = wrap_spec(self.package.__spec__)
-        self.assertIsInstance(reader, CompatibilityFiles)
+    def test__wrap_spec(self):
+        reader = _wrap_spec(self.package.__spec__)
+        self.assertIsInstance(reader, _CompatibilityFiles)
 
 
 class CompatibilityFilesNoReaderTests(unittest.TestCase):
