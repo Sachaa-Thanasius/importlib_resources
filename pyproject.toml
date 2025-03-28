@@ -4,8 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "importlib_resources"
-authors = [{ name = "Barry Warsaw", email = "barry@python.org" }]
-maintainers = [{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" }]
+authors = [
+	{ name = "Barry Warsaw", email = "barry@python.org" },
+]
+maintainers = [
+	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
+]
 description = "Read resources from Python packages"
 readme = "README.rst"
 classifiers = [
@@ -16,7 +20,9 @@ classifiers = [
 	"Programming Language :: Python :: 3 :: Only",
 ]
 requires-python = ">=3.9"
-dependencies = ["zipp >= 3.1.0; python_version < '3.10'"]
+dependencies = [
+	"zipp >= 3.1.0; python_version < '3.10'",
+]
 dynamic = ["version"]
 
 [project.urls]

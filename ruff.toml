@@ -2,6 +2,7 @@
 extend = "pyproject.toml"
 
 include = ["importlib_resources"]
+extend-exclude = ["importlib_resources/tests/**"]
 line-length = 120
 typing-modules = ["importlib_resources._lazy"]
 
@@ -96,16 +97,6 @@ lines-after-imports = 2
 
 [lint.pyupgrade]
 keep-runtime-typing = true
-
-[lint.per-file-ignores]
-"**/tests/**/*.py" = [
-	"T201",   # Printing.
-	"T203",   # Pretty-printing.
-	"ANN001", # Annotations for parameters.
-	"ANN201", # Annotations for public function returns.
-	"ANN202", # Annotations for private function returns.
-	"PT",     # Heavy usage of unittest-based tests.
-]
 
 [format]
 # Enable preview to get hugged parenthesis unwrapping and other nice surprises

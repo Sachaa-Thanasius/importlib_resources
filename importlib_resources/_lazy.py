@@ -68,118 +68,137 @@ __all__ = (
 
 )  # fmt: skip
 
-
-def __getattr__(name: str) -> object:  # noqa: PLR0911
-    # We use `global` here to cache the imported/created symbols in the global namespace.
-    if name == "pathlib":
-        global pathlib
-
-        import pathlib
-
-        return pathlib
-
-    if name == "tempfile":
-        global tempfile
-
-        import tempfile
-
-        return tempfile
-
-    if name == "readers":
-        global readers
-
-        from . import readers
-
-        return readers
-
-    if name in {"Callable", "Generator", "Iterable", "Iterator"}:
-        global Callable, Generator, Iterable, Iterator
-
-        from collections.abc import Callable, Generator, Iterable, Iterator
-
-        return globals()[name]
-
-    if name == "AbstractContextManager":
-        global AbstractContextManager
-
-        from contextlib import AbstractContextManager
-
-        return globals()[name]
-
-    if name in {"Any", "BinaryIO", "Literal", "Optional", "TextIO", "Union"}:
-        global Any, BinaryIO, Literal, Optional, TextIO, Union
-
-        from typing import Any, BinaryIO, Literal, Optional, TextIO, Union
-
-        return globals()[name]
-
-    if sys.version_info >= (3, 10) and name == "TypeAlias":
-        global TypeAlias
-
-        from typing import TypeAlias
-
-        return globals()[name]
-
-    if name in {"FrameType", "ModuleType", "SimpleNamespace"}:
-        global FrameType, ModuleType, SimpleNamespace
-
-        from types import FrameType, ModuleType, SimpleNamespace
-
-        return globals()[name]
-
-    if name == "StrPath":
-        global StrPath
-
-        import os
-        from typing import Union
-
-        if not TYPE_CHECKING:
-            StrPath = Union[str, os.PathLike[str]]
-
-        return globals()[name]
-
-    if name == "T":
-        global T
-
-        from typing import TypeVar
-
-        T = TypeVar("T")
-
-        return globals()[name]
-
-    if name == "CallableT":
-        global CallableT
-
-        from collections.abc import Callable
-        from typing import TypeVar
-
-        CallableT = TypeVar("CallableT", bound=Callable[..., object])
-
-        return globals()[name]
-
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
-
-
-def __dir__() -> list[str]:
-    return sorted(globals().keys() | __all__)
-
-
-if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-elif sys.version_info < (3, 10):
-
-    class TypeAlias:
-        """Placeholder for typing.TypeAlias."""
-
-
-# An annotated global can't be assigned within __getattr__ via the global keyword,
-# and pyright won't recognize StrPath as a type alias without the TypeAlias annotation.
-# Hence, this hack.
 if TYPE_CHECKING:
     import os
+    import pathlib
+    import tempfile
+    from collections.abc import Callable, Generator, Iterable, Iterator
+    from contextlib import AbstractContextManager
+    from types import FrameType, ModuleType, SimpleNamespace
+    from typing import Any, BinaryIO, Literal, Optional, TextIO, TypeVar, Union
 
+    from typing_extensions import TypeAlias
+
+    from . import readers
+    
     StrPath: TypeAlias = Union[str, os.PathLike[str]]
+    
+    T = TypeVar("T")
+    
+    CallableT = TypeVar("CallableT", bound=Callable[..., object])
+
+else:
+    def __getattr__(name: str) -> object:  # noqa: PLR0911
+        # We use `global` here to cache the imported/created symbols in the global namespace.
+        if name == "pathlib":
+            global pathlib
+
+            import pathlib
+
+            return pathlib
+
+        if name == "tempfile":
+            global tempfile
+
+            import tempfile
+
+            return tempfile
+
+        if name == "readers":
+            global readers
+
+            from . import readers
+
+            return readers
+
+        if name in {"Callable", "Generator", "Iterable", "Iterator"}:
+            global Callable, Generator, Iterable, Iterator
+
+            from collections.abc import Callable, Generator, Iterable, Iterator
+
+            return globals()[name]
+
+        if name == "AbstractContextManager":
+            global AbstractContextManager
+
+            from contextlib import AbstractContextManager
+
+            return globals()[name]
+
+        if name in {"Any", "BinaryIO", "Literal", "Optional", "TextIO", "Union"}:
+            global Any, BinaryIO, Literal, Optional, TextIO, Union
+
+            from typing import Any, BinaryIO, Literal, Optional, TextIO, Union
+
+            return globals()[name]
+
+        if sys.version_info >= (3, 10) and name == "TypeAlias":
+            global TypeAlias
+
+            from typing import TypeAlias
+
+            return globals()[name]
+
+        if name in {"FrameType", "ModuleType", "SimpleNamespace"}:
+            global FrameType, ModuleType, SimpleNamespace
+
+            from types import FrameType, ModuleType, SimpleNamespace
+
+            return globals()[name]
+
+        if name == "StrPath":
+            global StrPath
+
+            import os
+            from typing import Union
+
+            if not TYPE_CHECKING:
+                StrPath = Union[str, os.PathLike[str]]
+
+            return globals()[name]
+
+        if name == "T":
+            global T
+
+            from typing import TypeVar
+
+            T = TypeVar("T")
+
+            return globals()[name]
+
+        if name == "CallableT":
+            global CallableT
+
+            from collections.abc import Callable
+            from typing import TypeVar
+
+            CallableT = TypeVar("CallableT", bound=Callable[..., object])
+
+            return globals()[name]
+
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
+
+
+    def __dir__() -> list[str]:
+        return sorted(globals().keys() | __all__)
+
+
+    if TYPE_CHECKING:
+        from typing_extensions import TypeAlias
+    elif sys.version_info < (3, 10):
+
+        class TypeAlias:
+            """Placeholder for typing.TypeAlias."""
+
+
+    # An annotated global can't be assigned within __getattr__ via the global keyword,
+    # and pyright won't recognize StrPath as a type alias without the TypeAlias annotation.
+    # Hence, this hack.
+    if TYPE_CHECKING:
+        import os
+
+        StrPath: TypeAlias = Union[str, os.PathLike[str]]
 
 
 if TYPE_CHECKING:

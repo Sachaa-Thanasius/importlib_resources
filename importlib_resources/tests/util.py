@@ -306,5 +306,5 @@ class CommonTests(DiskSetup, CommonTestsBase):
 
 @contextlib.contextmanager
 def filter_warnings(action: str, category: type[Warning] = Warning):
-    warnings.simplefilter(action, category)
+    warnings.simplefilter(action, category) # type: ignore
     yield
