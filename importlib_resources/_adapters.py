@@ -3,8 +3,8 @@ from __future__ import annotations
 from importlib.machinery import ModuleSpec
 
 from . import _common, abc
-from . import _lazy_modules as _l
-from . import _typing_compat as _t
+from . import _lazy as _l
+from . import _lazy as _t
 
 
 _ResourceReaderGetter: _t.TypeAlias = "_t.Callable[[str], _t.Optional[abc.TraversableResources]]"
@@ -76,7 +76,7 @@ class CompatibilityFiles:
         except AttributeError:
             pass
 
-    def _native(self):
+    def _native(self) -> _t.Union[abc.TraversableResources, CompatibilityFiles]:
         """
         Return the native reader if it supports files().
         """
@@ -87,7 +87,7 @@ class CompatibilityFiles:
         return getattr(self._reader, attr)
 
     def files(self) -> abc.Traversable:
-        from ._paths_compat import SpecPath
+        from ._path_adapters import SpecPath
 
         return SpecPath(self.spec, self._reader)
 
@@ -103,19 +103,6 @@ class TraversableResourcesLoader:
 
     def __init__(self, spec: ModuleSpec):
         self.spec = spec
-
-    def get_resource_reader(self, name: str) -> abc.TraversableResources:
-        return (
-            _skip_degenerate(_block_standard(self._regular_get_resource_reader)(name))
-            or self._standard_reader()
-            or self._regular_get_resource_reader(name)
-        )
-
-    def _regular_get_resource_reader(self, name: str) -> abc.TraversableResources:
-        return CompatibilityFiles(self.spec)._native()
-
-    def _standard_reader(self) -> _t.Optional[abc.TraversableResources]:
-        return self._zip_reader() or self._namespace_reader() or self._file_reader()
 
     def _zip_reader(self) -> _t.Optional[_l.readers.ZipReader]:
         try:
@@ -140,6 +127,20 @@ class TraversableResourcesLoader:
         else:
             return None
 
+    def _standard_reader(self) -> _t.Optional[abc.TraversableResources]:
+        return self._zip_reader() or self._namespace_reader() or self._file_reader()
+
+    def _regular_get_resource_reader(self, name: str) -> abc.TraversableResources:
+        # CompatabilityFiles provides .files(), which is all wrap_spec() needs.
+        return CompatibilityFiles(self.spec)._native()  # pyright: ignore [reportReturnType]
+
+    def get_resource_reader(self, name: str) -> abc.TraversableResources:
+        return (
+            _skip_degenerate(_block_standard(self._regular_get_resource_reader)(name))
+            or self._standard_reader()
+            or self._regular_get_resource_reader(name)
+        )
+
 
 def wrap_spec(spec: ModuleSpec) -> abc.TraversableResources:
     """
@@ -160,4 +161,9 @@ def wrap_spec(spec: ModuleSpec) -> abc.TraversableResources:
         def get_resource_reader(name: str) -> abc.TraversableResources:
             return CompatibilityFiles(spec)._native()  # pyright: ignore [reportReturnType]
 
-    return get_resource_reader(spec.name)
+    # Backwards compat: Shim a missing files method.
+    reader = get_resource_reader(spec.name)
+    if not hasattr(reader, "files"):
+        reader = CompatibilityFiles(spec)
+
+    return reader  # pyright: ignore [reportReturnType]

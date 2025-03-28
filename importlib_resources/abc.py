@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import abc
 
-from . import _typing_compat as _t
-from ._typing_compat import TYPE_CHECKING
+from . import _lazy as _t
+from ._lazy import TYPE_CHECKING
 
 
 __all__ = ["ResourceReader", "Traversable", "TraversableResources"]

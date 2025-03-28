@@ -11,10 +11,8 @@ from ._common import (
     Anchor,
     Package,
     as_file,
-    files,
-)
-from ._functional import (
     contents,
+    files,
     is_resource,
     open_binary,
     open_text,

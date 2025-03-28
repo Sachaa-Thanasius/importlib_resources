@@ -3,7 +3,7 @@ import unittest
 
 import importlib_resources as resources
 from importlib_resources._adapters import CompatibilityFiles, wrap_spec
-from importlib_resources._paths_compat import OrphanPath
+from importlib_resources._path_adapters import OrphanPath
 
 from . import util
 

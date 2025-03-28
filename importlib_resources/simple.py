@@ -7,7 +7,7 @@ import io
 from collections.abc import Iterator
 from typing import Any, BinaryIO, Literal, TextIO, Union, overload
 
-from ._typing_compat import StrPath
+from ._lazy import StrPath
 from .abc import Traversable, TraversableResources
 
 

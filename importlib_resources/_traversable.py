@@ -2,8 +2,8 @@ import abc
 from collections.abc import Iterator
 from typing import Any, BinaryIO, Literal, Optional, Protocol, TextIO, Union, overload, runtime_checkable
 
-from . import _lazy_modules as _l
-from ._typing_compat import StrPath
+from . import _lazy as _l
+from . import _lazy as _t
 from .abc import TraversalError
 
 
@@ -49,7 +49,7 @@ class Traversable(Protocol):
         Return True if self is a file
         """
 
-    def joinpath(self, *descendants: StrPath) -> "Traversable":
+    def joinpath(self, *descendants: _t.StrPath) -> "Traversable":
         """
         Return Traversable resolved with any descendants applied.
 
@@ -69,7 +69,7 @@ class Traversable(Protocol):
             raise TraversalError(msg, target, list(names)) from None
         return match.joinpath(*names)
 
-    def __truediv__(self, key: StrPath) -> "Traversable":
+    def __truediv__(self, key: _t.StrPath) -> "Traversable":
         """
         Return Traversable child in self
         """

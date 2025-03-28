@@ -9,9 +9,9 @@ import zipimport
 from collections.abc import Generator, Iterable, Iterator
 from typing import Any, BinaryIO, Optional, Protocol, TypeVar, Union
 
-from . import _lazy_modules as _l
+from . import _lazy as _l
 from . import abc
-from ._typing_compat import StrPath
+from ._lazy import StrPath
 from .compat.py39 import ZipPath
 
 

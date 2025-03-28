@@ -75,10 +75,7 @@ parallel = true
 omit = [
 	# leading `*/` for pytest-dev/pytest-cov#456
 	"*/.tox/*",
-	"*/_itertools.py",
-	"*/_legacy.py",
 	"*/simple.py",
-	"*/_path.py",
 ]
 
 [tool.coverage.report]
@@ -90,7 +87,7 @@ exclude_lines = ["^\\s*(el)?if TYPE_CHECKING:$"]
 [tool.ruff]
 include = ["importlib_resources"]
 line-length = 120
-typing-modules = ["importlib_resources._typing_compat"]
+typing-modules = ["importlib_resources._lazy"]
 
 [tool.ruff.format]
 # Enable preview to get hugged parenthesis unwrapping and other nice surprises
