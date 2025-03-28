@@ -46,11 +46,18 @@ doc = [
 	# local
 ]
 
-check = ["pytest-checkdocs >= 2.4", "pytest-ruff >= 0.2.1; sys_platform != 'cygwin'"]
+check = [
+	"pytest-checkdocs >= 2.4",
+	"pytest-ruff >= 0.2.1; sys_platform != 'cygwin'",
+]
 
-cover = ["pytest-cov", "covdefaults"]
+cover = [
+	"pytest-cov",
+]
 
-enabler = ["pytest-enabler >= 2.2"]
+enabler = [
+	"pytest-enabler >= 2.2",
+]
 
 type = [
 	# upstream
@@ -61,160 +68,3 @@ type = [
 
 
 [tool.setuptools_scm]
-
-
-# ---- Test config
-
-[tool.pytest.ini_options]
-addopts = ["--doctest-modules", "--import-mode=importlib", "--strict-markers", "--strict-config"]
-testpaths = ["importlib_resources/tests"]
-
-[tool.coverage.run]
-plugins = ["covdefaults"]
-parallel = true
-omit = [
-	# leading `*/` for pytest-dev/pytest-cov#456
-	"*/.tox/*",
-	"*/simple.py",
-]
-
-[tool.coverage.report]
-exclude_lines = ["^\\s*(el)?if TYPE_CHECKING:$"]
-
-
-# ---- Linter config
-
-[tool.ruff]
-include = ["importlib_resources"]
-line-length = 120
-typing-modules = ["importlib_resources._lazy"]
-
-[tool.ruff.format]
-# Enable preview to get hugged parenthesis unwrapping and other nice surprises
-# See https://github.com/jaraco/skeleton/pull/133#issuecomment-2239538373
-preview = true
-# https://docs.astral.sh/ruff/settings/#format_quote-style
-quote-style = "preserve"
-
-[tool.ruff.lint]
-select = [
-	"A",
-	"ANN",
-	"ASYNC",
-	"B",
-	"BLE",
-	"C4",
-	"COM",
-	"DTZ",
-	"E",
-	"EM",
-	"ERA",
-	"F",
-	"FURB",
-	"G",
-	"I",
-	"ICN",
-	"INP",
-	"ISC",
-	"LOG",
-	"NPY",
-	"PD",
-	"PERF",
-	"PGH",
-	"PIE",
-	"PL",
-	"PT",
-	"PTH",
-	"PYI",
-	"RET",
-	"RSE",
-	"RUF",
-	"S",
-	"SIM",
-	"SLOT",
-	"T10",
-	"T20",
-	"TC",
-	"TID",
-	"TRY",
-	"UP",
-	"W",
-	"YTT",
-	# "FBT",
-]
-extend-ignore = [
-	# ---- General
-	"S101",    # Use of assert here is a known quantity for typing cases. All uses should be safe to optimize out.
-	"SIM105",  # Suppressable exception. contextlib.suppress is a stylistic choice with overhead.
-	"C90",     # McCabe complexity.
-	"ANN204",  # Special method return types are usually implicit and/or known by type checker.
-	"ANN401",  # Any is needed for some annotations.
-	"UP038",   # isinstance performs better with tuples than unions.
-	"PT001",   # pytest recommends against empty parentheses on pytest.fixture.
-	"TC001",   # Don't eagerly put things in TYPE_CHECKING blocks.
-	"TC002",   # Don't eagerly put things in TYPE_CHECKING blocks.
-	"TC003",   # Don't eagerly put things in TYPE_CHECKING blocks.
-	"PD011",   # Erroneous issue that triggers for any .values attribute access at all.
-	"PLR2004", # "Magic number" depends on the use case.
-	"RUF002",  # "Ambiguous character" depends on the use case.
-	"RUF003",  # "Ambiguous character" depends on the use case.
-	"RUF022",  # __all__ ordering can be meaningful.
-	"RUF023",  # __slots__ ordering can be meaningful. 
-
-	# ---- Recommended by Ruff when using Ruff format
-	"W191",
-	"E111",
-	"E114",
-	"E117",
-	"E501",
-	"COM812",
-	"COM819",
-	"ISC001",
-	"ISC002",
-	"W293",   # Not recommended, but ruff format handles it as well.
-
-	# ---- Project-specific rules
-	"RET505",  # el(se|if) after return, for readability.
-	"PLW0603", # We update via global in a few places.
-	"TID252",  # Relative imports used for portability.
-]
-unfixable = [
-	"ERA", # Prevent unlikely erroneous deletion.
-]
-
-[tool.ruff.lint.isort]
-lines-after-imports = 2
-
-[tool.ruff.lint.pyupgrade]
-keep-runtime-typing = true
-
-[tool.ruff.lint.per-file-ignores]
-"**/tests/test_*.py" = [
-	"T201",   # Printing.
-	"T203",   # Pretty-printing.
-	"ANN001", # Annotations for parameters.
-	"ANN201", # Annotations for public function returns.
-	"ANN202", # Annotations for private function returns.
-	"PT",     # Heavy usage of unittest-based tests.
-]
-
-
-# ---- Type-checker config
-
-[tool.pyright]
-include = ["importlib_resources"]
-exclude = ["importlib_resources/tests"]
-pythonVersion = "3.9"
-pythonPlatform = "All"
-typeCheckingMode = "strict"
-
-defineConstant = { "TYPE_CHECKING" = true } # Just in case.
-
-reportPrivateUsage = "none"                     # We're the library.
-reportUnnecessaryIsInstance = "information"     # Verify user input.
-reportUninitializedInstanceVariable = "warning" # Occasionally nice as a checkup, but otherwise noisy.
-reportCallInDefaultInitializer = "warning"
-reportImportCycles = "information"              # Occasionally not a false positive.
-reportPropertyTypeMismatch = "error"
-reportShadowedImports = "error"
-reportUnnecessaryTypeIgnoreComment = "warning"
