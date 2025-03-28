@@ -7,8 +7,8 @@ import warnings
 
 from . import _lazy_modules as _l
 from . import _typing_compat as _t
-from ._adapters import CompatibilityFiles
-from .future.adapters import TraversableResourcesLoader
+from . import abc
+from ._adapters import wrap_spec
 
 
 Package: _t.TypeAlias = "_t.Union[_t.ModuleType, str]"
@@ -37,8 +37,8 @@ def _wraps(wrapped: _t.CallableT) -> _t.Callable[[_t.CallableT], _t.CallableT]:
 
 
 def package_to_anchor(
-    func: _t.Callable[[_t.Optional[Anchor]], _l.abc.Traversable],
-) -> _t.Callable[[_t.Optional[Anchor]], _l.abc.Traversable]:
+    func: _t.Callable[[_t.Optional[Anchor]], abc.Traversable],
+) -> _t.Callable[[_t.Optional[Anchor]], abc.Traversable]:
     """
     Replace 'package' parameter as 'anchor' and warn about the change.
 
@@ -55,29 +55,32 @@ def package_to_anchor(
     def wrapper(
         anchor: _t.Optional[Anchor] = _undefined,
         package: _t.Optional[Anchor] = _undefined,
-    ) -> _l.abc.Traversable:
-        if package is not _undefined:
-            if anchor is not _undefined:
-                # Error case: Invalid number of args.
-                return func(anchor, package)  # pyright: ignore [reportCallIssue, reportUnknownVariableType]
-            else:
-                warnings.warn(
-                    "First parameter to files is renamed to 'anchor'",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                return func(package)
-        elif anchor is not _undefined:
+    ) -> abc.Traversable:
+        # Base case:
+        if (package is _undefined) and (anchor is not _undefined):
             return func(anchor)
+
+        # Warning case:
+        if (package is not _undefined) and (anchor is _undefined):
+            warnings.warn(
+                "First parameter to files is renamed to 'anchor'",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(package)
+
+        # Error cases:
+        # Expected to raise TypeError.
+        if (package is not _undefined) and (anchor is not _undefined):
+            return func(anchor, package)  # pyright: ignore [reportCallIssue, reportUnknownVariableType]
         else:
-            # Error case: Invalid number of args.
             return func()  # pyright: ignore [reportCallIssue, reportUnknownVariableType]
 
     return wrapper
 
 
 @package_to_anchor
-def files(anchor: _t.Optional[Anchor] = None) -> _l.abc.Traversable:
+def files(anchor: _t.Optional[Anchor] = None) -> abc.Traversable:
     """
     Get a Traversable resource for an anchor.
     """
@@ -87,7 +90,7 @@ def files(anchor: _t.Optional[Anchor] = None) -> _l.abc.Traversable:
 def resolve(cand: _t.Optional[Anchor]) -> _t.ModuleType:
     if cand is None:
         # Depth is 3 because: <caller>() (3) -> package_to_anchor (2) -> files (1) -> resolve (0).
-        cand = _infer_caller_module_name(3)
+        cand = _get_caller_module_name(depth=3)
 
     if isinstance(cand, str):
         return importlib.import_module(cand)
@@ -96,21 +99,31 @@ def resolve(cand: _t.Optional[Anchor]) -> _t.ModuleType:
         return cand
 
 
-def _infer_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
+def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
     """Find the module name of the frame one level beyond the depth given."""
 
     try:
         return sys._getframemodulename(depth + 1) or default  # pyright: ignore # noqa: PGH003 # Guarded.
-    except AttributeError:  # For platforms without _getframemodulename()
-        pass
+    except AttributeError:  # For platforms without sys._getframemodulename().
+        global _get_caller_module_name
 
-    try:
-        return _get_frame(depth + 1).f_globals.get('__name__', default)  # pyright: ignore # noqa: PGH003 # Guarded.
-    except (AttributeError, ValueError):  # For platforms without _getframe or an accessible call stack.
-        pass
+        def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
+            """Find the module name of the frame one level beyond the depth given."""
 
-    msg = "Cannot infer the caller's module's name."
-    raise RuntimeError(msg)
+            try:
+                return _get_frame(depth + 1).f_globals.get("__name__", default)  # pyright: ignore # noqa: PGH003 # Guarded.
+            except (AttributeError, ValueError):  # For platforms without sys._getframe() or a steep enough call stack.
+                global _get_caller_module_name
+
+                def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
+                    """Find the module name of the frame one level beyond the depth given."""
+
+                    msg = "Cannot get the caller's module's name."
+                    raise RuntimeError(msg)
+
+                return _get_caller_module_name(depth, default)
+
+        return _get_caller_module_name(depth, default)
 
 
 def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
@@ -126,11 +139,12 @@ def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
 
     try:
         return sys._getframe(depth + 1)
-    except (AttributeError, ValueError):  # For platforms without _getframe()
+    except (AttributeError, ValueError):  # For platforms without sys._getframe().
         global _get_frame
 
         def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
             """Return the frame object for the caller's parent stack frame."""
+
             try:
                 raise TypeError  # noqa: TRY301
             except TypeError:
@@ -150,34 +164,17 @@ def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
         return _get_frame()
 
 
-def from_package(package: _t.ModuleType) -> _l.abc.Traversable:
+def from_package(package: _t.ModuleType) -> abc.Traversable:
     """Get the Traversable object for the given package."""
 
     spec = package.__spec__
     assert spec is not None
 
-    # Backwards compat: Create a replacement loader if necessary.
-    loader = spec.loader
-    if loader is None:
-        loader = TraversableResourcesLoader(spec)
-
-    # Backwards compat: Create a replacement get_resource_reader() if necessary.
-    try:
-        get_resource_reader = getattr(loader, "get_resource_reader")  # noqa: B009
-    except AttributeError:
-
-        def get_resource_reader(name: str) -> _l.abc.TraversableResources:
-            return CompatibilityFiles(spec)._native()
-
-    # Backwards compat: Create a replacement files() if necessary.
-    reader = get_resource_reader(spec.name)
-    if not hasattr(reader, "files"):
-        reader = CompatibilityFiles(spec)
-
+    reader = wrap_spec(spec)
     return reader.files()
 
 
-def _check_dir_exists(path: _l.abc.Traversable) -> bool:
+def _check_dir_exists(path: abc.Traversable) -> bool:
     """
     Some Traversables implement ``is_dir()`` to raise an
     exception (i.e. ``FileNotFoundError``) when the
@@ -192,7 +189,7 @@ def _check_dir_exists(path: _l.abc.Traversable) -> bool:
     return False
 
 
-def as_file(path: _l.abc.Traversable) -> _t.AbstractContextManager[_l.pathlib.Path]:
+def as_file(path: abc.Traversable) -> _t.AbstractContextManager[_l.pathlib.Path]:
     """
     Given a Traversable object, return that object as a
     path on the local file system in a context manager.
@@ -220,7 +217,7 @@ class _AsFilePathContext:
         pass
 
 
-def _write_contents(target: _l.pathlib.Path, source: _l.abc.Traversable) -> _l.pathlib.Path:
+def _write_contents(target: _l.pathlib.Path, source: abc.Traversable) -> _l.pathlib.Path:
     child = target.joinpath(source.name)
     if source.is_dir():
         child.mkdir()
@@ -237,7 +234,7 @@ class _TempDirContext:
     to the file system in a context manager.
     """
 
-    def __init__(self, path: _l.abc.Traversable, /):
+    def __init__(self, path: abc.Traversable, /):
         assert path.is_dir()
         self.path = path
 

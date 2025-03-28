@@ -9,7 +9,6 @@ __all__ = (
     "pathlib",
     "tempfile",
     # sibling modules
-    "abc",
     "readers",
 )
 
@@ -29,13 +28,6 @@ def __getattr__(name: str) -> object:
 
         return tempfile
 
-    if name == "abc":
-        global abc
-
-        from . import abc
-
-        return abc
-
     if name == "readers":
         global readers
 
@@ -48,4 +40,4 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
-    return sorted(globals().keys() | set(__all__))
+    return sorted(globals().keys() | __all__)

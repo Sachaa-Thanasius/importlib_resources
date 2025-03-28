@@ -1,5 +1,5 @@
-"""Shim for typing-related, annotation-related, and other symbols to avoid runtime dependencies on expensive or
-third-party imports like `typing` or `typing-extensions`.
+"""Shim for typing- and annotation-related symbols to avoid runtime dependencies on expensive or third-party imports
+like `typing` or `typing-extensions`.
 
 Warning: Do not directly import annotation-related symbols from this module (e.g. `from ._typing_compat import Any`)!
 Doing so will trigger the module-level `__getattr__`, causing `typing` to get imported. Instead, import the module and
@@ -10,7 +10,7 @@ evaluated at runtime, which would also cause `typing` to get imported, make sure
 
 from __future__ import annotations
 
-import os  # noqa: F401 # Used in StrPath.
+import os  # Used in StrPath.
 import sys
 
 
@@ -18,6 +18,9 @@ TYPE_CHECKING = False
 
 
 __all__ = (
+    # Used at runtime.
+    "TYPE_CHECKING",
+    "overload",
     # collections.abc
     "Callable",
     "Generator",
@@ -28,6 +31,7 @@ __all__ = (
     # typing
     "Any",
     "BinaryIO",
+    "Literal",
     "Optional",
     "TextIO",
     "Union",
@@ -37,15 +41,13 @@ __all__ = (
     "ModuleType",
     "SimpleNamespace",
     # Other
-    "TYPE_CHECKING",
     "StrPath",
-    "T",
-    "U",
     "CallableT",
+    "T",
 )
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> object:  # noqa: PLR0911
     if name in {"Callable", "Generator", "Iterable", "Iterator"}:
         global Callable, Generator, Iterable, Iterator
 
@@ -58,12 +60,12 @@ def __getattr__(name: str) -> object:
 
         from contextlib import AbstractContextManager
 
-        return AbstractContextManager
+        return globals()[name]
 
-    if name in {"Any", "BinaryIO", "Optional", "TextIO", "Union"}:
-        global Any, BinaryIO, Optional, TextIO, Union
+    if name in {"Any", "BinaryIO", "Literal", "Optional", "TextIO", "Union"}:
+        global Any, BinaryIO, Literal, Optional, TextIO, Union
 
-        from typing import Any, BinaryIO, Optional, TextIO, Union
+        from typing import Any, BinaryIO, Literal, Optional, TextIO, Union
 
         return globals()[name]
 
@@ -81,14 +83,32 @@ def __getattr__(name: str) -> object:
 
         return globals()[name]
 
-    if name in {"T", "U", "CallableT"}:
-        global T, U, CallableT
+    if name == "StrPath":
+        global StrPath
+
+        import os
+        from typing import Union
+
+        if not TYPE_CHECKING:
+            StrPath = Union[str, os.PathLike[str]]
+
+        return globals()[name]
+
+    if name == "T":
+        global T
+
+        from typing import TypeVar
+
+        T = TypeVar("T")
+
+        return globals()[name]
+
+    if name == "CallableT":
+        global CallableT
 
         from collections.abc import Callable
         from typing import TypeVar
 
-        T = TypeVar("T")
-        U = TypeVar("U")
         CallableT = TypeVar("CallableT", bound=Callable[..., object])
 
         return globals()[name]
@@ -98,7 +118,7 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
-    return sorted(globals().keys() | set(__all__))
+    return sorted(globals().keys() | __all__)
 
 
 if TYPE_CHECKING:
@@ -109,4 +129,15 @@ elif sys.version_info < (3, 10):
         """Placeholder for typing.TypeAlias."""
 
 
-StrPath: TypeAlias = "Union[str, os.PathLike[str]]"
+# An annotated global can't be assigned within a function,
+# and pyright won't recognize StrPath as a type alias without the TypeAlias annotation.
+if TYPE_CHECKING:
+    StrPath: TypeAlias = "Union[str, os.PathLike[str]]"
+
+
+if TYPE_CHECKING:
+    from typing import overload
+else:
+
+    def overload(f):  # noqa: ANN001, ANN202
+        return f

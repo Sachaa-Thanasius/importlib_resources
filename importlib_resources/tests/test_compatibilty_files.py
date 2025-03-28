@@ -82,8 +82,8 @@ class CompatibilityFilesTests(unittest.TestCase):
             OrphanPath()
 
     def test_wrap_spec(self):
-        spec = wrap_spec(self.package)
-        self.assertIsInstance(spec.loader.get_resource_reader(None), CompatibilityFiles)
+        reader = wrap_spec(self.package.__spec__)
+        self.assertIsInstance(reader, CompatibilityFiles)
 
 
 class CompatibilityFilesNoReaderTests(unittest.TestCase):

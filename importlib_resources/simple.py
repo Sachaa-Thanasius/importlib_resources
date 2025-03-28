@@ -2,16 +2,16 @@
 Interface adapters for low-level readers.
 """
 
-# NOTE: If this is being imported, .abc is being imported, so there's no point delaying typing-related imports;
-# it doesn't really need ._typing.compat.
-
 import abc
 import io
 from collections.abc import Iterator
-from typing import Any, BinaryIO, Union
+from typing import Any, BinaryIO, Literal, TextIO, Union, overload
 
 from ._typing_compat import StrPath
 from .abc import Traversable, TraversableResources
+
+
+__all__ = ['SimpleReader', 'ResourceHandle', 'ResourceContainer', 'TraversableReader']
 
 
 class SimpleReader(abc.ABC):
@@ -74,6 +74,10 @@ class ResourceContainer(Traversable):
     def open(self, *args: Any, **kwargs: Any) -> Any:
         raise IsADirectoryError
 
+    @property
+    def name(self) -> str:
+        return self.reader.name
+
 
 class ResourceHandle(Traversable):
     """
@@ -82,7 +86,11 @@ class ResourceHandle(Traversable):
 
     def __init__(self, parent: ResourceContainer, name: str):
         self.parent = parent
-        self.name = name  # type: ignore[misc]
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def is_file(self) -> bool:
         return True
@@ -90,13 +98,21 @@ class ResourceHandle(Traversable):
     def is_dir(self) -> bool:
         return False
 
-    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Any:
+    @overload
+    def open(self, mode: Literal['r'] = 'r', *args: Any, **kwargs: Any) -> TextIO: ...
+    @overload
+    def open(self, mode: Literal['rb'], *args: Any, **kwargs: Any) -> BinaryIO: ...
+    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Union[TextIO, BinaryIO]:
         stream = self.parent.reader.open_binary(self.name)
         if 'b' not in mode:
             stream = io.TextIOWrapper(stream, *args, **kwargs)
         return stream
 
-    def joinpath(self, *descendents: StrPath):
+    def joinpath(self, *descendents: StrPath) -> Traversable:
+        msg = "Cannot traverse into a resource"
+        raise RuntimeError(msg)
+
+    def iterdir(self) -> Iterator[Traversable]:
         msg = "Cannot traverse into a resource"
         raise RuntimeError(msg)
 

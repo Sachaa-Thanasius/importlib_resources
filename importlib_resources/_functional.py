@@ -6,6 +6,7 @@ import warnings
 
 from . import _lazy_modules as _l
 from . import _typing_compat as _t
+from . import abc
 from ._common import Anchor, as_file, files
 
 
@@ -26,7 +27,7 @@ def _get_encoding_arg(path_names: tuple[_t.StrPath, ...], encoding: str) -> str:
     return encoding
 
 
-def _get_resource(anchor: _t.Optional[Anchor], path_names: tuple[_t.StrPath, ...]) -> _l.abc.Traversable:
+def _get_resource(anchor: _t.Optional[Anchor], path_names: tuple[_t.StrPath, ...]) -> abc.Traversable:
     if anchor is None:
         msg = "anchor must be module or string, got None"
         raise TypeError(msg)
@@ -69,7 +70,7 @@ def is_resource(anchor: Anchor, *path_names: _t.StrPath) -> bool:
     """
     try:
         return _get_resource(anchor, path_names).is_file()
-    except _l.abc.TraversalError:
+    except abc.TraversalError:
         return False
 
 

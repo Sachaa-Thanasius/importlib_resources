@@ -90,6 +90,7 @@ exclude_lines = ["^\\s*(el)?if TYPE_CHECKING:$"]
 [tool.ruff]
 include = ["importlib_resources"]
 line-length = 120
+typing-modules = ["importlib_resources._typing_compat"]
 
 [tool.ruff.format]
 # Enable preview to get hugged parenthesis unwrapping and other nice surprises
@@ -176,9 +177,9 @@ extend-ignore = [
 	"W293",   # Not recommended, but ruff format handles it as well.
 
 	# ---- Project-specific rules
-	# Personal readability
-	"RET505",  # el(se|if) after return
+	"RET505",  # el(se|if) after return, for readability.
 	"PLW0603", # We update via global in a few places.
+	"TID252",  # Relative imports used for portability.
 ]
 unfixable = [
 	"ERA", # Prevent unlikely erroneous deletion.

@@ -2,8 +2,62 @@ from __future__ import annotations
 
 from importlib.machinery import ModuleSpec
 
+from . import _common, abc
 from . import _lazy_modules as _l
 from . import _typing_compat as _t
+
+
+_ResourceReaderGetter: _t.TypeAlias = "_t.Callable[[str], _t.Optional[abc.TraversableResources]]"
+
+
+def _block_standard(reader_getter: _ResourceReaderGetter) -> _ResourceReaderGetter:
+    """
+    Wrap TraversableResourcesLoader._regular_get_resource_reader()
+    and intercept any standard library readers.
+    """
+
+    @_common._wraps(reader_getter)
+    def wrapper(*args: _t.Any, **kwargs: _t.Any) -> _t.Optional[abc.TraversableResources]:
+        """
+        If the reader is from the standard library, return None to allow
+        allow likely newer implementations in this library to take precedence.
+        """
+        try:
+            reader = reader_getter(*args, **kwargs)
+        except NotADirectoryError:
+            # MultiplexedPath may fail on zip subdirectory
+            return None
+        except ValueError as exc:
+            # NamespaceReader in stdlib may fail for editable installs
+            # (python/importlib_resources#311, python/importlib_resources#318)
+            # Remove after bugfix applied to Python 3.13.
+            if "not enough values to unpack" not in str(exc):
+                raise
+            return None
+
+        # Python 3.10+
+        mod_name = reader.__class__.__module__
+        if mod_name.startswith('importlib.') and mod_name.endswith('readers'):
+            return None
+
+        # Python 3.8, 3.9
+        if isinstance(reader, CompatibilityFiles) and reader.spec.loader.__class__.__module__.startswith((
+            'zipimport',
+            '_frozen_importlib_external',
+        )):
+            return None
+
+        return reader
+
+    return wrapper
+
+
+def _skip_degenerate(reader: _t.T) -> _t.Optional[_t.T]:
+    """
+    Mask any degenerate reader. Ref python/importlib_resources#298.
+    """
+    is_degenerate = isinstance(reader, CompatibilityFiles) and not reader._reader
+    return reader if not is_degenerate else None
 
 
 class CompatibilityFiles:
@@ -16,7 +70,7 @@ class CompatibilityFiles:
         self.spec: ModuleSpec = spec
 
     @property
-    def _reader(self) -> _t.Optional[_l.abc.Traversable]:
+    def _reader(self) -> _t.Optional[abc.TraversableResources]:
         try:
             return self.spec.loader.get_resource_reader(self.spec.name)
         except AttributeError:
@@ -27,12 +81,12 @@ class CompatibilityFiles:
         Return the native reader if it supports files().
         """
         reader = self._reader
-        return reader if hasattr(reader, 'files') else self
+        return reader if (reader is not None and hasattr(reader, 'files')) else self
 
     def __getattr__(self, attr: str, /) -> _t.Any:
         return getattr(self._reader, attr)
 
-    def files(self) -> _l.abc.Traversable:
+    def files(self) -> abc.Traversable:
         from ._paths_compat import SpecPath
 
         return SpecPath(self.spec, self._reader)
@@ -40,32 +94,70 @@ class CompatibilityFiles:
 
 class TraversableResourcesLoader:
     """
-    Adapt a loader to provide TraversableResources.
+    Adapt a loader to provide TraversableResources and other
+    compatibility.
+
+    Ensures the readers from importlib_resources are preferred
+    over stdlib readers.
     """
 
     def __init__(self, spec: ModuleSpec):
         self.spec = spec
 
-    def get_resource_reader(self, name: str):
+    def get_resource_reader(self, name: str) -> abc.TraversableResources:
+        return (
+            _skip_degenerate(_block_standard(self._regular_get_resource_reader)(name))
+            or self._standard_reader()
+            or self._regular_get_resource_reader(name)
+        )
+
+    def _regular_get_resource_reader(self, name: str) -> abc.TraversableResources:
         return CompatibilityFiles(self.spec)._native()
 
+    def _standard_reader(self) -> _t.Optional[abc.TraversableResources]:
+        return self._zip_reader() or self._namespace_reader() or self._file_reader()
 
-class SpecLoaderAdapter:
+    def _zip_reader(self) -> _t.Optional[_l.readers.ZipReader]:
+        try:
+            return _l.readers.ZipReader(self.spec.loader, self.spec.name)  # pyright: ignore [reportArgumentType] # Guarded?
+        except AttributeError:
+            pass
+
+    def _namespace_reader(self) -> _t.Optional[_l.readers.NamespaceReader]:
+        try:
+            return _l.readers.NamespaceReader(self.spec.submodule_search_locations)  # pyright: ignore [reportArgumentType] # Guarded?
+        except (AttributeError, ValueError):
+            pass
+
+    def _file_reader(self) -> _t.Optional[_l.readers.FileReader]:
+        try:
+            path = _l.pathlib.Path(self.spec.origin)  # pyright: ignore [reportArgumentType] # Guarded.
+        except TypeError:
+            return None
+
+        if path.exists():
+            return _l.readers.FileReader(_t.SimpleNamespace(path=path))  # pyright: ignore [reportArgumentType] # .path is provided.
+        else:
+            return None
+
+
+def wrap_spec(spec: ModuleSpec) -> abc.TraversableResources:
     """
-    Adapt a package spec to adapt the underlying loader.
+    Get the traversable resources reader for a module spec while wrapping missing functionality on the
+    spec/loader/reader for compatability.
     """
 
-    def __init__(self, spec: ModuleSpec, adapter=lambda spec: spec.loader):
-        self.spec = spec
-        self.loader = adapter(spec)
+    # Backwards compat: Shim a missing loader.
+    loader = spec.loader
+    if loader is None:
+        loader = TraversableResourcesLoader(spec)
 
-    def __getattr__(self, name: str):
-        return getattr(self.spec, name)
+    # Backwards compat: Shim a missing get_resource_reader method.
+    try:
+        get_resource_reader = getattr(loader, "get_resource_reader")  # noqa: B009
+    except AttributeError:
 
+        def get_resource_reader(name: str) -> abc.TraversableResources:
+            return CompatibilityFiles(spec)._native()  # pyright: ignore [reportReturnType]
 
-def wrap_spec(package: _t.ModuleType) -> SpecLoaderAdapter:
-    """
-    Construct a package spec with traversable compatibility
-    on the spec/loader/reader.
-    """
-    return SpecLoaderAdapter(package.__spec__, TraversableResourcesLoader)
+    return get_resource_reader(spec.name)
