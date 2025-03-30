@@ -7,11 +7,11 @@ to improve startup performance.
 
 Usage Notes
 -----------
-Do not directly import annotation-related symbols from this module (e.g. `from ._lazy import Any`)!
+Do not directly import annotation-related symbols from this module (e.g. ``from ._lazy import Any``)!
 Doing so will trigger the module-level `__getattr__`, causing shimmed modules, e.g. `typing`, to get imported.
-Instead, import the module and use symbols via attribute access as needed (e.g. `from . import _lazy [as _t]`).
+Instead, import the module and use symbols via attribute access as needed (e.g. ``from . import _lazy [as _t]``).
 
-Additionally, to avoid those symbols being evaluated at runtime, which would also cause shimmed modules to get imported,
+Additionally, to avoid those symbols being evaluated at runtime, which would _also_ cause shimmed modules to get imported,
 make sure to defer evaluation of annotations via the following:
 
     a) <3.14: Manual stringification of annotations, or `from __future__ import annotations`.
@@ -75,7 +75,7 @@ __all__ = (
 )  # fmt: skip
 
 
-# Type checkers needs this block to understand what `__getattr__()` does currently.
+# Type checkers needs this block to understand what __getattr__() does currently.
 if TYPE_CHECKING:
     import os
     import pathlib
@@ -146,13 +146,12 @@ def __getattr__(name: str) -> object:
         msg = f"module {__name__!r} has no attribute {name!r}"
         raise AttributeError(msg)
 
-    # Cache the result in the global namespace to, when possible, avoid re-calling `__getattr__()`.
+    # Cache the result in the global namespace to avoid re-calling __getattr__() (when possible).
     globals()[name] = obj
     return obj
 
 
 def __dir__() -> list[str]:
-    # This improves the experiences of debugging, tab completion, and casual inspection within the REPL.
     return sorted(globals().keys() | __all__)
 
 

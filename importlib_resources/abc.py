@@ -9,9 +9,9 @@ from ._lazy import TYPE_CHECKING
 __all__ = ["ResourceReader", "Traversable", "TraversableResources"]
 
 
-# A hack with the following purposes:
-# a) type checkers, so they can understand what `__getattr__()` exports
-# b) annotation usage, so that `Traversable` can be used in deferred annotations via `_self_mod.Traversable`
+# A hack for the following targets:
+# a) type checkers, so they can understand what __getattr__() exports
+# b) annotations, so that Traversable can be used in deferred annotations via _self_mod.Traversable
 if TYPE_CHECKING:
     from ._traversable import Traversable
 

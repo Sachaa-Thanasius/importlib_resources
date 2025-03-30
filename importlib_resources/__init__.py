@@ -59,7 +59,7 @@ Anchor: _t.TypeAlias = Package
 
 # This attempts to support Python implementations that either don't have sys._getframe()
 # or don't support sys._getframe(x) where x >= 2, e.g. Jython, IronPython.
-# This avoids `inspect.stack()` because of how expensive `inspect` is to import.
+# This avoids inspect.stack() because of how expensive inspect is to import.
 def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
     """Return the frame object for one of the caller's parent stack frames."""
 
@@ -342,11 +342,11 @@ def _package_to_anchor(
         anchor: _t.Optional[Anchor] = _MISSING,
         package: _t.Optional[Anchor] = _MISSING,
     ) -> abc.Traversable:
-        # Base case: `anchor` usage.
+        # Base case: anchor usage.
         if (package is _MISSING) and (anchor is not _MISSING):
             return func(anchor)
 
-        # Warning case: `package` usage.
+        # Warning case: package usage.
         if (package is not _MISSING) and (anchor is _MISSING):
             warnings.warn(
                 "First parameter to files is renamed to 'anchor'",
