@@ -7,11 +7,11 @@ import re
 import warnings
 import zipimport
 from collections.abc import Generator, Iterable, Iterator
-from typing import Any, BinaryIO, Optional, Protocol, TypeVar, Union
+from typing import Any, BinaryIO, Protocol, TypeVar, Union
 
 from . import _lazy as _l
+from . import _lazy as _t
 from . import abc
-from ._lazy import StrPath
 from .compat.py39 import ZipPath
 
 
@@ -33,7 +33,7 @@ class FileReader(abc.TraversableResources):
     def __init__(self, loader: _HasPath):
         self.path = pathlib.Path(loader.path).parent
 
-    def resource_path(self, resource: StrPath) -> str:
+    def resource_path(self, resource: _t.StrPath) -> str:
         """
         Return the file system path to prevent
         `resources.path()` from creating a temporary
@@ -53,13 +53,13 @@ class ZipReader(abc.TraversableResources):
             self.prefix += name + '/'
         self.archive: str = loader.archive
 
-    def open_resource(self, resource: StrPath) -> BinaryIO:
+    def open_resource(self, resource: _t.StrPath) -> BinaryIO:
         try:
             return super().open_resource(resource)
         except KeyError as exc:
             raise FileNotFoundError(exc.args[0]) from None
 
-    def is_resource(self, path: StrPath) -> bool:
+    def is_resource(self, path: _t.StrPath) -> bool:
         """
         Workaround for `zipfile.Path.is_file` returning true
         for non-existent paths.
@@ -127,7 +127,7 @@ class MultiplexedPath(abc.Traversable):
     def is_file(self) -> bool:
         return False
 
-    def joinpath(self, *descendants: StrPath) -> abc.Traversable:
+    def joinpath(self, *descendants: _t.StrPath) -> abc.Traversable:
         try:
             return super().joinpath(*descendants)
         except abc.TraversalError:
@@ -212,7 +212,7 @@ class NamespaceReader(abc.TraversableResources):
             ):
                 pass
 
-    def resource_path(self, resource: StrPath) -> str:
+    def resource_path(self, resource: _t.StrPath) -> str:
         """
         Return the file system path to prevent
         `resources.path()` from creating a temporary
