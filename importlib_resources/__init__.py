@@ -138,7 +138,7 @@ def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
 
 def _block_standard(reader_getter: _ResourceReaderGetter) -> _ResourceReaderGetter:
     """
-    Wrap TraversableResourcesLoader._regular_get_resource_reader()
+    Wrap TraversableResourcesLoader._compat_get_resource_reader()
     and intercept any standard library readers.
     """
 
@@ -262,43 +262,26 @@ class _TraversableResourcesLoader:
     def _standard_reader(self) -> _t.Optional[abc.TraversableResources]:
         return self._zip_reader() or self._namespace_reader() or self._file_reader()
 
-    def _regular_get_resource_reader(self, name: str) -> abc.TraversableResources:
-        # NOTE: The return type is a lie, but _CompatabilityFiles provides .files(), which is all _wrap_spec() uses.
+    def _compat_get_resource_reader(self, name: str) -> abc.TraversableResources:
+        # NOTE: The return type is a lie, but _CompatibilityFiles provides .files(), which is all _wrap_spec() uses.
         return _CompatibilityFiles(self.spec)._native()  # pyright: ignore [reportReturnType]
 
     def get_resource_reader(self, name: str) -> abc.TraversableResources:
         return (
-            _skip_degenerate(_block_standard(self._regular_get_resource_reader)(name))
+            _skip_degenerate(_block_standard(self._compat_get_resource_reader)(name))
             or self._standard_reader()
-            or self._regular_get_resource_reader(name)
+            or self._compat_get_resource_reader(name)
         )
 
 
 def _wrap_spec(spec: importlib.machinery.ModuleSpec) -> abc.TraversableResources:
     """
     Get the traversable resources reader for a module spec while wrapping missing functionality on the
-    spec/loader/reader for compatability.
+    spec/loader/reader for compatibility.
     """
 
-    # Backwards compat: Shim a missing loader.
-    loader = spec.loader
-    if loader is None:
-        loader = _TraversableResourcesLoader(spec)
-
-    # Backwards compat: Shim a missing get_resource_reader method.
-    try:
-        get_resource_reader = getattr(loader, "get_resource_reader")  # noqa: B009
-    except AttributeError:
-
-        def get_resource_reader(name: str) -> abc.TraversableResources:
-            return _CompatibilityFiles(spec)._native()  # pyright: ignore [reportReturnType]
-
-    # Backwards compat: Shim a missing files method.
-    reader = get_resource_reader(spec.name)
-    if not hasattr(reader, "files"):
-        reader = _CompatibilityFiles(spec)
-
-    return reader  # pyright: ignore [reportReturnType]
+    loader = _TraversableResourcesLoader(spec)
+    return loader.get_resource_reader(spec.name)
 
 
 # endregion

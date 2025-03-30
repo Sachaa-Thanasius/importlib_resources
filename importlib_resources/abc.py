@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from ._traversable import Traversable
 
     class _self_mod:
-        Traversable = Traversable
+        Traversable: _t.TypeAlias = Traversable
 
 else:
     import sys
