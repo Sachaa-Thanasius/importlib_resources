@@ -45,9 +45,6 @@ __all__ = (
     "Iterable",
     "Iterator",
 
-    # contextlib
-    "AbstractContextManager",
-
     # typing
     "Any",
     "BinaryIO",
@@ -82,7 +79,6 @@ if TYPE_CHECKING:
     import shutil
     import tempfile
     from collections.abc import Callable, Generator, Iterable, Iterator
-    from contextlib import AbstractContextManager
     from types import FrameType, ModuleType, SimpleNamespace
     from typing import (
         Any,
@@ -121,11 +117,6 @@ def __getattr__(name: str) -> object:
         import collections.abc
 
         obj = getattr(collections.abc, name)
-
-    elif name == "AbstractContextManager":
-        import contextlib
-
-        obj = getattr(contextlib, name)
 
     elif name in {
         "Any",

@@ -438,7 +438,9 @@ def _temp_file(
             pass
 
 
-def as_file(path: abc.Traversable) -> _t.AbstractContextManager[_l.pathlib.Path]:
+def as_file(
+    path: abc.Traversable,
+) -> contextlib.AbstractContextManager[_l.pathlib.Path]:
     """
     Given a Traversable object, return that object as a
     path on the local file system in a context manager.
@@ -520,7 +522,7 @@ def read_text(
 def path(
     anchor: Anchor,
     *path_names: _t.StrPath,
-) -> _t.AbstractContextManager[_l.pathlib.Path]:
+) -> contextlib.AbstractContextManager[_l.pathlib.Path]:
     """Return the path to the *resource* as an actual file system path."""
     return as_file(_get_resource(anchor, path_names))
 
