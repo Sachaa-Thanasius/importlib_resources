@@ -83,9 +83,15 @@ class ChildPath(abc.Traversable):
         return self._name
 
     @_t.overload
-    def open(self, mode: _t.Literal['r'] = 'r', *args: _t.Any, **kwargs: _t.Any) -> _t.TextIO: ...
+    def open(
+        self, mode: _t.Literal['r'] = 'r', *args: _t.Any, **kwargs: _t.Any
+    ) -> _t.TextIO: ...
+
     @_t.overload
-    def open(self, mode: _t.Literal['rb'], *args: _t.Any, **kwargs: _t.Any) -> _t.BinaryIO: ...
+    def open(
+        self, mode: _t.Literal['rb'], *args: _t.Any, **kwargs: _t.Any
+    ) -> _t.BinaryIO: ...
+
     def open(
         self, mode: _t.Literal['r', 'rb'] = 'r', *args: _t.Any, **kwargs: _t.Any
     ) -> _t.Union[_t.TextIO, _t.BinaryIO]:
@@ -98,7 +104,11 @@ class SpecPath(abc.Traversable):
     Can be read and exposes the resource reader children.
     """
 
-    def __init__(self, spec: importlib.machinery.ModuleSpec, reader: _t.Optional[abc.TraversableResources]):
+    def __init__(
+        self,
+        spec: importlib.machinery.ModuleSpec,
+        reader: _t.Optional[abc.TraversableResources],
+    ):
         self._spec = spec
         self._reader = reader
 
@@ -123,9 +133,15 @@ class SpecPath(abc.Traversable):
         return self._spec.name
 
     @_t.overload
-    def open(self, mode: _t.Literal['r'] = 'r', *args: _t.Any, **kwargs: _t.Any) -> _t.TextIO: ...
+    def open(
+        self, mode: _t.Literal['r'] = 'r', *args: _t.Any, **kwargs: _t.Any
+    ) -> _t.TextIO: ...
+
     @_t.overload
-    def open(self, mode: _t.Literal['rb'], *args: _t.Any, **kwargs: _t.Any) -> _t.BinaryIO: ...
+    def open(
+        self, mode: _t.Literal['rb'], *args: _t.Any, **kwargs: _t.Any
+    ) -> _t.BinaryIO: ...
+
     def open(
         self, mode: _t.Literal['r', 'rb'] = 'r', *args: _t.Any, **kwargs: _t.Any
     ) -> _t.Union[_t.TextIO, _t.BinaryIO]:

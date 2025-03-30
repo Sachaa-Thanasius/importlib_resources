@@ -84,7 +84,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator
     from contextlib import AbstractContextManager
     from types import FrameType, ModuleType, SimpleNamespace
-    from typing import Any, BinaryIO, Literal, NoReturn, Optional, TextIO, TypeVar, Union
+    from typing import (
+        Any,
+        BinaryIO,
+        Literal,
+        NoReturn,
+        Optional,
+        TextIO,
+        TypeVar,
+        Union,
+    )
 
     from typing_extensions import TypeAlias
 
@@ -118,9 +127,15 @@ def __getattr__(name: str) -> object:
 
         obj = getattr(contextlib, name)
 
-    elif name in {"Any", "BinaryIO", "Literal", "NoReturn", "Optional", "TextIO", "Union"} or (
-        sys.version_info >= (3, 10) and name == "TypeAlias"
-    ):
+    elif name in {
+        "Any",
+        "BinaryIO",
+        "Literal",
+        "NoReturn",
+        "Optional",
+        "TextIO",
+        "Union",
+    } or (sys.version_info >= (3, 10) and name == "TypeAlias"):
         import typing
 
         obj = getattr(typing, name)

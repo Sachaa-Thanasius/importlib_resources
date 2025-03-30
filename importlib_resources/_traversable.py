@@ -1,6 +1,16 @@
 import abc
 from collections.abc import Iterator
-from typing import Any, BinaryIO, Literal, Optional, Protocol, TextIO, Union, overload, runtime_checkable
+from typing import (
+    Any,
+    BinaryIO,
+    Literal,
+    Optional,
+    Protocol,
+    TextIO,
+    Union,
+    overload,
+    runtime_checkable,
+)
 
 from . import _lazy as _l
 from . import _lazy as _t
@@ -30,7 +40,11 @@ class Traversable(Protocol):
         with self.open('rb') as strm:
             return strm.read()
 
-    def read_text(self, encoding: Optional[str] = None, errors: Optional[str] = None) -> str:
+    def read_text(
+        self,
+        encoding: Optional[str] = None,
+        errors: Optional[str] = None,
+    ) -> str:
         """
         Read contents of self as text
         """
@@ -59,9 +73,15 @@ class Traversable(Protocol):
         """
         if not descendants:
             return self
-        names = (part for path in map(_l.pathlib.PurePosixPath, descendants) for part in path.parts)
+        names = (
+            part
+            for path in map(_l.pathlib.PurePosixPath, descendants)
+            for part in path.parts
+        )
         target = next(names)
-        matches = (traversable for traversable in self.iterdir() if traversable.name == target)
+        matches = (
+            traversable for traversable in self.iterdir() if traversable.name == target
+        )
         try:
             match = next(matches)
         except StopIteration:
@@ -82,7 +102,12 @@ class Traversable(Protocol):
     def open(self, mode: Literal['rb'], *args: Any, **kwargs: Any) -> BinaryIO: ...
 
     @abc.abstractmethod
-    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Union[TextIO, BinaryIO]:
+    def open(
+        self,
+        mode: str = 'r',
+        *args: Any,
+        **kwargs: Any,
+    ) -> Union[TextIO, BinaryIO]:
         """
         mode may be 'r' or 'rb' to open as text or binary. Return a handle
         suitable for reading (same as pathlib.Path.open).

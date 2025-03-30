@@ -23,7 +23,9 @@ from . import abc
 from .abc import ResourceReader
 
 
-_ResourceReaderGetter: _t.TypeAlias = "_t.Callable[[str], _t.Optional[abc.TraversableResources]]"
+_ResourceReaderGetter: _t.TypeAlias = (
+    "_t.Callable[[str], _t.Optional[abc.TraversableResources]]"
+)
 
 
 __all__ = [
@@ -112,7 +114,10 @@ def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
 
                 global _get_caller_module_name
 
-                def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
+                def _get_caller_module_name(
+                    depth: int = 1,
+                    default: str = "__main__",
+                ) -> str:
                     """Find the module name of the frame one level beyond the depth given."""
 
                     msg = "Cannot get the caller's module's name."
@@ -138,7 +143,10 @@ def _block_standard(reader_getter: _ResourceReaderGetter) -> _ResourceReaderGett
     """
 
     @functools.wraps(reader_getter)
-    def wrapper(*args: _t.Any, **kwargs: _t.Any) -> _t.Optional[abc.TraversableResources]:
+    def wrapper(
+        *args: _t.Any,
+        **kwargs: _t.Any,
+    ) -> _t.Optional[abc.TraversableResources]:
         """
         If the reader is from the standard library, return None to allow
         allow likely newer implementations in this library to take precedence.
@@ -162,7 +170,9 @@ def _block_standard(reader_getter: _ResourceReaderGetter) -> _ResourceReaderGett
             return None
 
         # Python 3.8, 3.9
-        if isinstance(reader, _CompatibilityFiles) and reader.spec.loader.__class__.__module__.startswith((
+        if isinstance(
+            reader, _CompatibilityFiles
+        ) and reader.spec.loader.__class__.__module__.startswith((
             'zipimport',
             '_frozen_importlib_external',
         )):
@@ -395,7 +405,10 @@ def _as_file_Path(path: _l.pathlib.Path) -> _t.Generator[_l.pathlib.Path]:
     yield path
 
 
-def _write_contents(target: _l.pathlib.Path, source: abc.Traversable) -> _l.pathlib.Path:
+def _write_contents(
+    target: _l.pathlib.Path,
+    source: abc.Traversable,
+) -> _l.pathlib.Path:
     child = target.joinpath(source.name)
     if source.is_dir():
         child.mkdir()
@@ -478,7 +491,10 @@ def _get_encoding_arg(path_names: tuple[_t.StrPath, ...], encoding: str) -> str:
     return encoding
 
 
-def _get_resource(anchor: _t.Optional[Anchor], path_names: tuple[_t.StrPath, ...]) -> abc.Traversable:
+def _get_resource(
+    anchor: _t.Optional[Anchor],
+    path_names: tuple[_t.StrPath, ...],
+) -> abc.Traversable:
     if anchor is None:
         msg = "anchor must be module or string, got None"
         raise TypeError(msg)
@@ -490,7 +506,12 @@ def open_binary(anchor: Anchor, *path_names: _t.StrPath) -> _t.BinaryIO:
     return _get_resource(anchor, path_names).open('rb')
 
 
-def open_text(anchor: Anchor, *path_names: _t.StrPath, encoding: str = _MISSING, errors: str = 'strict') -> _t.TextIO:
+def open_text(
+    anchor: Anchor,
+    *path_names: _t.StrPath,
+    encoding: str = _MISSING,
+    errors: str = 'strict',
+) -> _t.TextIO:
     """Open for text reading the *resource* within *package*."""
     encoding = _get_encoding_arg(path_names, encoding)
     resource = _get_resource(anchor, path_names)
@@ -502,14 +523,22 @@ def read_binary(anchor: Anchor, *path_names: _t.StrPath) -> bytes:
     return _get_resource(anchor, path_names).read_bytes()
 
 
-def read_text(anchor: Anchor, *path_names: _t.StrPath, encoding: str = _MISSING, errors: str = 'strict') -> str:
+def read_text(
+    anchor: Anchor,
+    *path_names: _t.StrPath,
+    encoding: str = _MISSING,
+    errors: str = 'strict',
+) -> str:
     """Read and return contents of *resource* within *package* as str."""
     encoding = _get_encoding_arg(path_names, encoding)
     resource = _get_resource(anchor, path_names)
     return resource.read_text(encoding=encoding, errors=errors)
 
 
-def path(anchor: Anchor, *path_names: _t.StrPath) -> _t.AbstractContextManager[_l.pathlib.Path]:
+def path(
+    anchor: Anchor,
+    *path_names: _t.StrPath,
+) -> _t.AbstractContextManager[_l.pathlib.Path]:
     """Return the path to the *resource* as an actual file system path."""
     return as_file(_get_resource(anchor, path_names))
 

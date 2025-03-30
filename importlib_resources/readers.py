@@ -175,7 +175,9 @@ class NamespaceReader(abc.TraversableResources):
         if 'NamespacePath' not in str(namespace_path):
             msg = 'Invalid path'
             raise ValueError(msg)
-        self.path = MultiplexedPath(*[part for part in map(self._resolve, namespace_path) if part is not None])
+        self.path = MultiplexedPath(*[
+            part for part in map(self._resolve, namespace_path) if part is not None
+        ])
 
     @classmethod
     def _resolve(cls, path_str: str) -> abc.Traversable | None:

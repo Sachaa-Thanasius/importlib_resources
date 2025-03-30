@@ -7,8 +7,8 @@ import unittest
 import warnings
 
 import importlib_resources as resources
-from importlib_resources.abc import Traversable
 
+from ..abc import Traversable
 from . import util
 from .compat.py39 import import_helper, os_helper
 

@@ -100,9 +100,16 @@ class ResourceHandle(Traversable):
 
     @overload
     def open(self, mode: Literal['r'] = 'r', *args: Any, **kwargs: Any) -> TextIO: ...
+
     @overload
     def open(self, mode: Literal['rb'], *args: Any, **kwargs: Any) -> BinaryIO: ...
-    def open(self, mode: str = 'r', *args: Any, **kwargs: Any) -> Union[TextIO, BinaryIO]:
+
+    def open(
+        self,
+        mode: str = 'r',
+        *args: Any,
+        **kwargs: Any,
+    ) -> Union[TextIO, BinaryIO]:
         stream = self.parent.reader.open_binary(self.name)
         if 'b' not in mode:
             stream = io.TextIOWrapper(stream, *args, **kwargs)

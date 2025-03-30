@@ -1,12 +1,11 @@
 # extend pyproject.toml for requires-python (workaround astral-sh/ruff#10299)
 extend = "pyproject.toml"
 
-include = ["importlib_resources"]
 extend-exclude = ["importlib_resources/tests/**"]
-line-length = 120
-typing-modules = ["importlib_resources._lazy"]
+line-length = 88
 
 [lint]
+typing-modules = ["importlib_resources._lazy"]
 select = [
 	"A",
 	"ANN",
