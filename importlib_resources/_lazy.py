@@ -1,16 +1,21 @@
-"""Internal.
+"""INTERNAL.
 
 A reexport shim/middleman for typing-related symbols, annotation-related symbols, and modules to avoid import-time
 dependencies on expensive modules (like `typing` and `pathlib`) or third-party imports (like `typing-extensions`).
-Some of the symbols or modules may not ever be needed at runtime, depending on what the user does.
+Some of the symbols or modules may eventually be needed at runtime, but their import/creation will be "on demand"
+to improve startup performance.
 
 Usage Notes
 -----------
 Do not directly import annotation-related symbols from this module (e.g. `from ._lazy import Any`)!
 Doing so will trigger the module-level `__getattr__`, causing shimmed modules, e.g. `typing`, to get imported.
 Instead, import the module and use symbols via attribute access as needed (e.g. `from . import _lazy [as _t]`).
-To avoid those symbols being evaluated at runtime, which would also cause shimmed modules to get imported,
-make sure to put `from __future__ import annotations` at the top of the module.
+
+Additionally, to avoid those symbols being evaluated at runtime, which would also cause shimmed modules to get imported,
+make sure to defer evaluation of annotations via the following:
+
+    a) <3.14: Manual stringification of annotations, or `from __future__ import annotations`.
+    b) >=3.14: Nothing, thanks to default PEP 649 semantics.
 """
 
 from __future__ import annotations
@@ -26,12 +31,13 @@ __all__ = (
 
     # stdlib
     "pathlib",
+    "shutil",
     "tempfile",
 
     # sibling
     "readers",
 
-    # ---- Typing/annotations ----
+    # ---- Typing/annotation symbols ----
 
     # collections.abc
     "Callable",
@@ -46,6 +52,7 @@ __all__ = (
     "Any",
     "BinaryIO",
     "Literal",
+    "NoReturn",
     "Optional",
     "TextIO",
     "Union",
@@ -58,7 +65,6 @@ __all__ = (
 
     # Other
     "StrPath",
-    "CallableT",
     "T",
 
     # ---- Used at runtime ----
@@ -68,137 +74,94 @@ __all__ = (
 
 )  # fmt: skip
 
+
+# Type checkers needs this block to understand what `__getattr__()` does currently.
 if TYPE_CHECKING:
     import os
     import pathlib
+    import shutil
     import tempfile
     from collections.abc import Callable, Generator, Iterable, Iterator
     from contextlib import AbstractContextManager
     from types import FrameType, ModuleType, SimpleNamespace
-    from typing import Any, BinaryIO, Literal, Optional, TextIO, TypeVar, Union
+    from typing import Any, BinaryIO, Literal, NoReturn, Optional, TextIO, TypeVar, Union
 
     from typing_extensions import TypeAlias
 
     from . import readers
-    
+
     StrPath: TypeAlias = Union[str, os.PathLike[str]]
-    
+
     T = TypeVar("T")
-    
-    CallableT = TypeVar("CallableT", bound=Callable[..., object])
 
-else:
-    def __getattr__(name: str) -> object:  # noqa: PLR0911
-        # We use `global` here to cache the imported/created symbols in the global namespace.
-        if name == "pathlib":
-            global pathlib
 
-            import pathlib
+def __getattr__(name: str) -> object:
+    if name == "pathlib":
+        import pathlib as obj
 
-            return pathlib
+    elif name == "shutil":
+        import shutil as obj
 
-        if name == "tempfile":
-            global tempfile
+    elif name == "tempfile":
+        import tempfile as obj
 
-            import tempfile
+    elif name == "readers":
+        from . import readers as obj
 
-            return tempfile
+    elif name in {"Callable", "Generator", "Iterable", "Iterator"}:
+        import collections.abc
 
-        if name == "readers":
-            global readers
+        obj = getattr(collections.abc, name)
 
-            from . import readers
+    elif name == "AbstractContextManager":
+        import contextlib
 
-            return readers
+        obj = getattr(contextlib, name)
 
-        if name in {"Callable", "Generator", "Iterable", "Iterator"}:
-            global Callable, Generator, Iterable, Iterator
+    elif name in {"Any", "BinaryIO", "Literal", "NoReturn", "Optional", "TextIO", "Union"} or (
+        sys.version_info >= (3, 10) and name == "TypeAlias"
+    ):
+        import typing
 
-            from collections.abc import Callable, Generator, Iterable, Iterator
+        obj = getattr(typing, name)
 
-            return globals()[name]
+    elif name in {"FrameType", "ModuleType", "SimpleNamespace"}:
+        import types
 
-        if name == "AbstractContextManager":
-            global AbstractContextManager
+        obj = getattr(types, name)
 
-            from contextlib import AbstractContextManager
+    elif name == "StrPath":
+        import os
+        from typing import Union
 
-            return globals()[name]
+        obj = Union[str, os.PathLike[str]]
 
-        if name in {"Any", "BinaryIO", "Literal", "Optional", "TextIO", "Union"}:
-            global Any, BinaryIO, Literal, Optional, TextIO, Union
+    elif name == "T":
+        from typing import TypeVar
 
-            from typing import Any, BinaryIO, Literal, Optional, TextIO, Union
+        # This will respond to queries for "T" and be cached in the global namespace as "T", so it's fine.
+        obj = TypeVar("T")  # pyright: ignore[reportGeneralTypeIssues] # noqa: PLC0132
 
-            return globals()[name]
-
-        if sys.version_info >= (3, 10) and name == "TypeAlias":
-            global TypeAlias
-
-            from typing import TypeAlias
-
-            return globals()[name]
-
-        if name in {"FrameType", "ModuleType", "SimpleNamespace"}:
-            global FrameType, ModuleType, SimpleNamespace
-
-            from types import FrameType, ModuleType, SimpleNamespace
-
-            return globals()[name]
-
-        if name == "StrPath":
-            global StrPath
-
-            import os
-            from typing import Union
-
-            if not TYPE_CHECKING:
-                StrPath = Union[str, os.PathLike[str]]
-
-            return globals()[name]
-
-        if name == "T":
-            global T
-
-            from typing import TypeVar
-
-            T = TypeVar("T")
-
-            return globals()[name]
-
-        if name == "CallableT":
-            global CallableT
-
-            from collections.abc import Callable
-            from typing import TypeVar
-
-            CallableT = TypeVar("CallableT", bound=Callable[..., object])
-
-            return globals()[name]
-
+    else:
         msg = f"module {__name__!r} has no attribute {name!r}"
         raise AttributeError(msg)
 
-
-    def __dir__() -> list[str]:
-        return sorted(globals().keys() | __all__)
-
-
-    if TYPE_CHECKING:
-        from typing_extensions import TypeAlias
-    elif sys.version_info < (3, 10):
-
-        class TypeAlias:
-            """Placeholder for typing.TypeAlias."""
+    # Cache the result in the global namespace to, when possible, avoid re-calling `__getattr__()`.
+    globals()[name] = obj
+    return obj
 
 
-    # An annotated global can't be assigned within __getattr__ via the global keyword,
-    # and pyright won't recognize StrPath as a type alias without the TypeAlias annotation.
-    # Hence, this hack.
-    if TYPE_CHECKING:
-        import os
+def __dir__() -> list[str]:
+    # This improves the experiences of debugging, tab completion, and casual inspection within the REPL.
+    return sorted(globals().keys() | __all__)
 
-        StrPath: TypeAlias = Union[str, os.PathLike[str]]
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+elif sys.version_info < (3, 10):
+
+    class TypeAlias:
+        """Placeholder for typing.TypeAlias."""
 
 
 if TYPE_CHECKING:

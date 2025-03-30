@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from importlib.machinery import ModuleSpec
+import importlib.machinery
 from io import TextIOWrapper
 
 from . import _lazy as _t
@@ -51,7 +51,7 @@ class OrphanPath(abc.Traversable):
     def name(self) -> str:
         return self._path[-1]
 
-    def open(self, mode: str = 'r', *args: _t.Any, **kwargs: _t.Any):
+    def open(self, mode: str = 'r', *args: _t.Any, **kwargs: _t.Any) -> _t.NoReturn:
         msg = "Can't open orphan path"
         raise FileNotFoundError(msg)
 
@@ -98,7 +98,7 @@ class SpecPath(abc.Traversable):
     Can be read and exposes the resource reader children.
     """
 
-    def __init__(self, spec: ModuleSpec, reader: _t.Optional[abc.TraversableResources]):
+    def __init__(self, spec: importlib.machinery.ModuleSpec, reader: _t.Optional[abc.TraversableResources]):
         self._spec = spec
         self._reader = reader
 

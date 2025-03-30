@@ -16,7 +16,6 @@ from .compat.py39 import ZipPath
 
 
 _T = TypeVar("_T")
-_U = TypeVar("_U")
 
 
 __all__ = ['FileReader', 'ZipReader', 'MultiplexedPath', 'NamespaceReader']
@@ -24,47 +23,6 @@ __all__ = ['FileReader', 'ZipReader', 'MultiplexedPath', 'NamespaceReader']
 
 def _remove_duplicates(items: Iterable[_T]) -> Iterator[_T]:
     return iter(dict.fromkeys(items))
-
-
-# from more_itertools 9.0
-def _only(
-    iterable: Iterable[_T],
-    default: _U = None,
-    too_long: Optional[Union[Exception, type[Exception]]] = None,
-) -> Union[_T, _U]:
-    """If *iterable* has only one item, return it.
-    If it has zero items, return *default*.
-    If it has more than one item, raise the exception given by *too_long*,
-    which is ``ValueError`` by default.
-    >>> _only([], default='missing')
-    'missing'
-    >>> _only([1])
-    1
-    >>> _only([1, 2])  # doctest: +IGNORE_EXCEPTION_DETAIL
-    Traceback (most recent call last):
-    ...
-    ValueError: Expected exactly one item in iterable, but got 1, 2,
-     and perhaps more.'
-    >>> _only([1, 2], too_long=TypeError)  # doctest: +IGNORE_EXCEPTION_DETAIL
-    Traceback (most recent call last):
-    ...
-    TypeError
-    Note that :func:`_only` attempts to advance *iterable* twice to ensure there
-    is only one item.  See :func:`spy` or :func:`peekable` to check
-    iterable contents less destructively.
-    """
-    it = iter(iterable)
-    first_value = next(it, default)
-
-    try:
-        second_value = next(it)
-    except StopIteration:
-        pass
-    else:
-        msg = f'Expected exactly one item in iterable, but got {first_value!r}, {second_value!r}, and perhaps more.'
-        raise too_long or ValueError(msg)
-
-    return first_value
 
 
 class _HasPath(Protocol):
@@ -113,6 +71,24 @@ class ZipReader(abc.TraversableResources):
         return ZipPath(self.archive, self.prefix)
 
 
+def _ensure_traversable(path: Union[str, abc.Traversable]) -> abc.Traversable:
+    """
+    Convert deprecated string arguments to traversables (pathlib.Path).
+
+    Remove with Python 3.15.
+    """
+    if not isinstance(path, str):
+        return path
+
+    warnings.warn(
+        "String arguments are deprecated. Pass a Traversable instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+    return pathlib.Path(path)
+
+
 class MultiplexedPath(abc.Traversable):
     """
     Given a series of Traversable objects, implement a merged
@@ -135,8 +111,7 @@ class MultiplexedPath(abc.Traversable):
         by_name = operator.attrgetter('name')
         groups = itertools.groupby(sorted(children, key=by_name), key=by_name)
         for _name, locs in groups:
-            if (loc := self._follow(locs)) is not None:
-                yield loc
+            yield self._follow(locs)
 
     def read_bytes(self) -> bytes:
         msg = f'{self} is not a file'
@@ -161,7 +136,7 @@ class MultiplexedPath(abc.Traversable):
             return self._paths[0].joinpath(*descendants)
 
     @classmethod
-    def _follow(cls, children: Iterable[abc.Traversable]) -> Optional[abc.Traversable]:
+    def _follow(cls, children: Iterable[abc.Traversable]) -> abc.Traversable:
         """
         Construct a MultiplexedPath if needed.
 
@@ -172,12 +147,14 @@ class MultiplexedPath(abc.Traversable):
         subdirs, one_dir, one_file = itertools.tee(children, 3)
 
         try:
-            return _only(one_dir)
-        except ValueError:
+            [only_one] = one_dir
+        except ValueError:  # If children has 0 or >=2 elements.
             try:
                 return cls(*subdirs)
             except NotADirectoryError:
                 return next(one_file)
+        else:
+            return only_one
 
     def open(self, *args: Any, **kwargs: Any) -> Any:
         msg = f'{self} is not a file'
@@ -245,21 +222,3 @@ class NamespaceReader(abc.TraversableResources):
 
     def files(self) -> MultiplexedPath:
         return self.path
-
-
-def _ensure_traversable(path: Union[str, abc.Traversable]) -> abc.Traversable:
-    """
-    Convert deprecated string arguments to traversables (pathlib.Path).
-
-    Remove with Python 3.15.
-    """
-    if not isinstance(path, str):
-        return path
-
-    warnings.warn(
-        "String arguments are deprecated. Pass a Traversable instead.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-    return pathlib.Path(path)

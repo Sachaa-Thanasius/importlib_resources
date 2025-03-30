@@ -9,6 +9,8 @@ for more detail.
 
 from __future__ import annotations
 
+import contextlib
+import functools
 import importlib
 import importlib.machinery
 import os
@@ -50,43 +52,26 @@ Anchor: _t.TypeAlias = Package
 """An anchor for resources, either a module object or a module name as a string."""
 
 
-def _wraps(wrapped: _t.CallableT) -> _t.Callable[[_t.CallableT], _t.CallableT]:
-    """A vendored version of `functools.wraps()` to avoid the expensive import."""
-
-    def decorator(wrapper: _t.CallableT) -> _t.CallableT:
-        for attr in ('__module__', '__name__', '__qualname__', '__doc__', '__annotations__', '__type_params__'):
-            try:
-                value = getattr(wrapped, attr)
-            except AttributeError:  # noqa: PERF203
-                pass
-            else:
-                setattr(wrapper, attr, value)
-
-        wrapper.__dict__ |= getattr(wrapped, '__dict__', {})
-        wrapper.__wrapped__ = wrapped  # pyright: ignore [reportFunctionMemberAccess]
-        return wrapper
-
-    return decorator
+# ============================================================================
+# region -------- Frame helpers --------
+# ============================================================================
 
 
+# This attempts to support Python implementations that either don't have sys._getframe()
+# or don't support sys._getframe(x) where x >= 2, e.g. Jython, IronPython.
+# This avoids `inspect.stack()` because of how expensive `inspect` is to import.
 def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
-    """Return the frame object for one of the caller's parent stack frames.
-
-    Notes
-    -----
-    This attempts to support Python implementations that don't support sys._getframe(x) where x >= 2,
-    e.g. Jython, IronPython.
-
-    This avoids `inspect.stack()` because of how expensive `inspect` is to import.
-    """
+    """Return the frame object for one of the caller's parent stack frames."""
 
     try:
         return sys._getframe(depth + 1)
-    except (AttributeError, ValueError):  # For platforms without sys._getframe().
+    except (AttributeError, ValueError):
+        # For platforms without sys._getframe() or without a sufficiently capable one.
+
         global _get_frame
 
         def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
-            """Return the frame object for the caller's parent stack frame."""
+            """Return the frame object for one of the caller's parent stack frames."""
 
             try:
                 raise TypeError  # noqa: TRY301
@@ -100,7 +85,7 @@ def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
                     global _get_frame
 
                     def _get_frame(depth: int = 1, /) -> _t.Optional[_t.FrameType]:
-                        """Return the frame object for the caller's parent stack frame."""
+                        """Return the frame object for one of the caller's parent stack frames."""
 
                     return _get_frame()
 
@@ -112,7 +97,9 @@ def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
 
     try:
         return sys._getframemodulename(depth + 1) or default  # pyright: ignore # noqa: PGH003 # Guarded.
-    except AttributeError:  # For platforms without sys._getframemodulename().
+    except AttributeError:
+        # For platforms without sys._getframemodulename().
+
         global _get_caller_module_name
 
         def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
@@ -120,7 +107,9 @@ def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
 
             try:
                 return _get_frame(depth + 1).f_globals.get("__name__", default)  # pyright: ignore # noqa: PGH003 # Guarded.
-            except (AttributeError, ValueError):  # For platforms without sys._getframe() or a steep enough call stack.
+            except (AttributeError, ValueError):
+                # For platforms without a capable sys._getframe() or a traceback-accessible call stack.
+
                 global _get_caller_module_name
 
                 def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
@@ -134,27 +123,21 @@ def _get_caller_module_name(depth: int = 1, default: str = "__main__") -> str:
         return _get_caller_module_name(depth, default)
 
 
-def _resolve(cand: _t.Optional[Anchor]) -> _t.ModuleType:
-    if cand is None:
-        # PYUPDATE: 3.15 - Update depth based on package_to_anchor() being removed.
-        # Depth is 3 because: <caller>() (3) -> package_to_anchor (2) -> files (1) -> resolve (0).
-        cand = _get_caller_module_name(depth=3)
-
-    if isinstance(cand, str):
-        return importlib.import_module(cand)
-    else:
-        # This allows non-modules through, but we rely on from_package() to catch such cases.
-        return cand
+# endregion
 
 
-# PYUPDATE: Reevaluate component shims based on minimum supported version.
+# ============================================================================
+# region -------- Forwards/backwards compatibility helpers --------
+# ============================================================================
+
+
 def _block_standard(reader_getter: _ResourceReaderGetter) -> _ResourceReaderGetter:
     """
     Wrap TraversableResourcesLoader._regular_get_resource_reader()
     and intercept any standard library readers.
     """
 
-    @_wraps(reader_getter)
+    @functools.wraps(reader_getter)
     def wrapper(*args: _t.Any, **kwargs: _t.Any) -> _t.Optional[abc.TraversableResources]:
         """
         If the reader is from the standard library, return None to allow
@@ -210,7 +193,7 @@ class _CompatibilityFiles:
     @property
     def _reader(self) -> _t.Optional[abc.TraversableResources]:
         try:
-            return self.spec.loader.get_resource_reader(self.spec.name)
+            return self.spec.loader.get_resource_reader(self.spec.name)  # pyright: ignore  # noqa: PGH003 # Guarded.
         except AttributeError:
             pass
 
@@ -225,7 +208,7 @@ class _CompatibilityFiles:
         return getattr(self._reader, attr)
 
     def files(self) -> abc.Traversable:
-        # Defer for startup performance.
+        # Defer import for startup performance.
         from ._path_adapters import SpecPath
 
         return SpecPath(self.spec, self._reader)
@@ -270,7 +253,7 @@ class _TraversableResourcesLoader:
         return self._zip_reader() or self._namespace_reader() or self._file_reader()
 
     def _regular_get_resource_reader(self, name: str) -> abc.TraversableResources:
-        # A lie, but CompatabilityFiles provides .files(), which is all wrap_spec() needs.
+        # NOTE: The return type is a lie, but _CompatabilityFiles provides .files(), which is all _wrap_spec() uses.
         return _CompatibilityFiles(self.spec)._native()  # pyright: ignore [reportReturnType]
 
     def get_resource_reader(self, name: str) -> abc.TraversableResources:
@@ -286,8 +269,6 @@ def _wrap_spec(spec: importlib.machinery.ModuleSpec) -> abc.TraversableResources
     Get the traversable resources reader for a module spec while wrapping missing functionality on the
     spec/loader/reader for compatability.
     """
-
-    # PYUPDATE: Reevaluate which of these shims are needed.
 
     # Backwards compat: Shim a missing loader.
     loader = spec.loader
@@ -310,6 +291,28 @@ def _wrap_spec(spec: importlib.machinery.ModuleSpec) -> abc.TraversableResources
     return reader  # pyright: ignore [reportReturnType]
 
 
+# endregion
+
+
+# ============================================================================
+# region -------- Base API --------
+# ============================================================================
+
+
+def _resolve(cand: _t.Optional[Anchor]) -> _t.ModuleType:
+    if cand is None:
+        # PYUPDATE: 3.15 - Update depth based on package_to_anchor() being removed.
+        # Depth is 3 because
+        # <caller>() (3) -> package_to_anchor() (2) -> files() (1) -> resolve() (0)
+        cand = _get_caller_module_name(depth=3)
+
+    if isinstance(cand, str):
+        return importlib.import_module(cand)
+    else:
+        # This allows non-modules through, but we rely on from_package() to catch such cases.
+        return cand
+
+
 def _from_package(package: _t.ModuleType) -> abc.Traversable:
     """Get the Traversable object for the given package."""
 
@@ -319,7 +322,6 @@ def _from_package(package: _t.ModuleType) -> abc.Traversable:
     return reader.files()
 
 
-# PYUPDATE: 3.14 - Remove this compatibility shim.
 def _package_to_anchor(
     func: _t.Callable[[_t.Optional[Anchor]], abc.Traversable],
 ) -> _t.Callable[[_t.Optional[Anchor]], abc.Traversable]:
@@ -335,16 +337,16 @@ def _package_to_anchor(
     Remove this compatibility in Python 3.14.
     """
 
-    @_wraps(func)
+    @functools.wraps(func)
     def wrapper(
         anchor: _t.Optional[Anchor] = _MISSING,
         package: _t.Optional[Anchor] = _MISSING,
     ) -> abc.Traversable:
-        # Base case:
+        # Base case: `anchor` usage.
         if (package is _MISSING) and (anchor is not _MISSING):
             return func(anchor)
 
-        # Warning case:
+        # Warning case: `package` usage.
         if (package is not _MISSING) and (anchor is _MISSING):
             warnings.warn(
                 "First parameter to files is renamed to 'anchor'",
@@ -353,8 +355,7 @@ def _package_to_anchor(
             )
             return func(package)
 
-        # Error cases:
-        # Expected to raise TypeError.
+        # Error cases: Both or neither provided. Expected to raise TypeError.
         if (package is not _MISSING) and (anchor is not _MISSING):
             return func(anchor, package)  # pyright: ignore [reportCallIssue, reportUnknownVariableType]
         else:
@@ -386,22 +387,12 @@ def _dir_exists(path: abc.Traversable) -> bool:
     return False
 
 
-# NOTE: The following context managers avoid contextlib.contextmanager() due to import cost.
-
-
-class _AsFilePathContext:
+@contextlib.contextmanager
+def _as_file_Path(path: _l.pathlib.Path) -> _t.Generator[_l.pathlib.Path]:
     """
     Degenerate behavior for pathlib.Path objects.
     """
-
-    def __init__(self, path: _l.pathlib.Path, /):
-        self.path = path
-
-    def __enter__(self, /) -> _l.pathlib.Path:
-        return self.path
-
-    def __exit__(self, *_dont_care: object):
-        pass
+    yield path
 
 
 def _write_contents(target: _l.pathlib.Path, source: abc.Traversable) -> _l.pathlib.Path:
@@ -415,55 +406,39 @@ def _write_contents(target: _l.pathlib.Path, source: abc.Traversable) -> _l.path
     return child
 
 
-class _TempDirContext:
+@contextlib.contextmanager
+def _temp_dir(path: abc.Traversable) -> _t.Generator[_l.pathlib.Path]:
     """
     Given a traversable dir, recursively replicate the whole tree
     to the file system in a context manager.
     """
-
-    def __init__(self, path: abc.Traversable, /):
-        assert path.is_dir()
-        self.path = path
-
-    def __enter__(self, /):
-        self.temp_dir = _l.tempfile.TemporaryDirectory()  # pyright: ignore [reportUninitializedInstanceVariable]
-        temp_dir_path = _l.pathlib.Path(self.temp_dir.__enter__())
-        return _write_contents(temp_dir_path, self.path)
-
-    def __exit__(self, *exc_info: object):
-        return self.temp_dir.__exit__(*exc_info)  # pyright: ignore [reportArgumentType]
+    assert path.is_dir()
+    with _l.tempfile.TemporaryDirectory() as temp_dir:
+        yield _write_contents(_l.pathlib.Path(temp_dir), path)
 
 
-class _TempFileContext:
-    def __init__(
-        self,
-        reader: _t.Callable[[], bytes],
-        suffix: str = '',
-        # gh-93353: Keep a reference to call os.remove() in late Python
-        # finalization.
-        *,
-        _os_remove: _t.Callable[[str], None] = os.remove,
-    ):
-        self.reader = reader
-        self.suffix = suffix
-        self.os_remove = _os_remove
-        self.raw_path = ""
+@contextlib.contextmanager
+def _temp_file(
+    reader: abc.Traversable,
+    suffix: str = '',
+    # gh-93353: Keep a reference to call os.remove() in late Python
+    # finalization.
+    *,
+    _os_remove: _t.Callable[[str], None] = os.remove,
+) -> _t.Generator[_l.pathlib.Path]:
+    # Not using tempfile.NamedTemporaryFile as it leads to deeper 'try'
+    # blocks due to the need to close the temporary file to work on Windows
+    # properly.
+    fd, raw_path = _l.tempfile.mkstemp(suffix=suffix)
+    try:
+        # Avoid loading the whole file in memory before transferring it.
+        with reader.open("rb") as fsrc, open(fd, "wb") as fdest:  # noqa: PTH123 # Plain open is fine.
+            _l.shutil.copyfileobj(fsrc, fdest)
 
-    def __enter__(self, /):
-        # Not using tempfile.NamedTemporaryFile as it leads to deeper 'try'
-        # blocks due to the need to close the temporary file to work on Windows
-        # properly.
-        fd, self.raw_path = _l.tempfile.mkstemp(suffix=self.suffix)
+        yield _l.pathlib.Path(raw_path)
+    finally:
         try:
-            os.write(fd, self.reader())
-        finally:
-            os.close(fd)
-        del self.reader
-        return _l.pathlib.Path(self.raw_path)
-
-    def __exit__(self, *_dont_care: object):
-        try:
-            self.os_remove(self.raw_path)
+            _os_remove(raw_path)
         except FileNotFoundError:
             pass
 
@@ -474,14 +449,21 @@ def as_file(path: abc.Traversable) -> _t.AbstractContextManager[_l.pathlib.Path]
     path on the local file system in a context manager.
     """
     if isinstance(path, _l.pathlib.Path):
-        return _AsFilePathContext(path)
+        return _as_file_Path(path)
     elif _dir_exists(path):
-        return _TempDirContext(path)
+        return _temp_dir(path)
     else:
-        return _TempFileContext(path.read_bytes, suffix=path.name)
+        return _temp_file(path, suffix=path.name)
 
 
-# PYUPDATE: 3.15 - Remove this compatibility shim.
+# endregion
+
+
+# ============================================================================
+# region -------- Functional API --------
+# ============================================================================
+
+
 def _get_encoding_arg(path_names: tuple[_t.StrPath, ...], encoding: str) -> str:
     # For compatibility with versions where *encoding* was a positional
     # argument, it needs to be given explicitly when there are multiple
@@ -555,3 +537,6 @@ def contents(anchor: Anchor, *path_names: _t.StrPath) -> _t.Iterator[str]:
         stacklevel=1,
     )
     return (resource.name for resource in _get_resource(anchor, path_names).iterdir())
+
+
+# endregion

@@ -9,11 +9,24 @@ from ._lazy import TYPE_CHECKING
 __all__ = ["ResourceReader", "Traversable", "TraversableResources"]
 
 
+# A hack with the following purposes:
+# a) type checkers, so they can understand what `__getattr__()` exports
+# b) annotation usage, so that `Traversable` can be used in deferred annotations via `_self_mod.Traversable`
 if TYPE_CHECKING:
     from ._traversable import Traversable
 
+    class _self_mod:
+        Traversable = Traversable
 
-def __getattr__(name: str) -> object:
+else:
+    import sys
+
+    _self_mod = sys.modules[__name__]
+    del sys
+
+
+def __getattr__(name: str) -> _t.Any:
+    # Defer import for startup performance.
     if name == "Traversable":
         from ._traversable import Traversable
 
@@ -76,7 +89,7 @@ class TraversableResources(ResourceReader):
     """
 
     @abc.abstractmethod
-    def files(self) -> Traversable:  # TODO: Make this annotation valid at runtime.
+    def files(self) -> _self_mod.Traversable:
         """Return a Traversable object for the loaded package."""
 
     def open_resource(self, resource: _t.StrPath) -> _t.BinaryIO:
