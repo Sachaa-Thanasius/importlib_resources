@@ -191,14 +191,14 @@ def _skip_degenerate(reader: _t.T) -> _t.Optional[_t.T]:
     return reader if not is_degenerate else None
 
 
-class _CompatibilityFiles:
+class _CompatibilityFiles(abc.TraversableResources):
     """
     Adapter for an existing or non-existent resource reader
     to provide a compatibility .files().
     """
 
     def __init__(self, spec: importlib.machinery.ModuleSpec):
-        self.spec: importlib.machinery.ModuleSpec = spec
+        self.spec = spec
 
     @property
     def _reader(self) -> _t.Optional[abc.TraversableResources]:
@@ -207,7 +207,7 @@ class _CompatibilityFiles:
         except AttributeError:
             pass
 
-    def _native(self) -> _t.Union[abc.TraversableResources, _CompatibilityFiles]:
+    def _native(self) -> abc.TraversableResources:
         """
         Return the native reader if it supports files().
         """
@@ -263,8 +263,7 @@ class _TraversableResourcesLoader:
         return self._zip_reader() or self._namespace_reader() or self._file_reader()
 
     def _compat_get_resource_reader(self, name: str) -> abc.TraversableResources:
-        # NOTE: The return type is a lie, but _CompatibilityFiles provides .files(), which is all _wrap_spec() uses.
-        return _CompatibilityFiles(self.spec)._native()  # pyright: ignore [reportReturnType]
+        return _CompatibilityFiles(self.spec)._native()
 
     def get_resource_reader(self, name: str) -> abc.TraversableResources:
         return (
