@@ -6,7 +6,7 @@ line-length = 88
 
 [lint]
 typing-modules = ["importlib_resources._lazy"]
-select = [
+extend-select = [
 	"A",
 	"ANN",
 	"ASYNC",
@@ -70,7 +70,7 @@ extend-ignore = [
 	"RUF022",  # __all__ ordering can be meaningful.
 	"RUF023",  # __slots__ ordering can be meaningful. 
 
-	# ---- Recommended by Ruff when using Ruff format
+	# ---- Recommended by Ruff when using ruff format
 	"W191",
 	"E111",
 	"E114",
@@ -80,12 +80,11 @@ extend-ignore = [
 	"COM819",
 	"ISC001",
 	"ISC002",
-	"W293",   # Not recommended, but ruff format handles it as well.
+	"W293",   # Not explicitly recommended, but ruff format handles it as well.
 
 	# ---- Project-specific rules
 	"RET505",  # el(se|if) after return, for readability.
 	"PLW0603", # We update via global in a few places.
-	"TID252",  # Relative imports used for portability.
 ]
 unfixable = [
 	"ERA", # Prevent unlikely erroneous deletion.
